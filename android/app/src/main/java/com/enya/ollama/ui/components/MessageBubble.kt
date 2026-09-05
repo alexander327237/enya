@@ -3,12 +3,14 @@ package com.enya.ollama.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,8 +37,17 @@ fun MessageBubble(message: MessageEntity, modifier: Modifier = Modifier) {
                 .padding(horizontal = 14.dp, vertical = 10.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            val displayText = if (message.content.isEmpty() && message.isStreaming) "…" else message.content
-            MarkdownText(text = displayText)
+            Column {
+                val imageCount = message.images?.split("|")?.count { it.isNotEmpty() } ?: 0
+                if (imageCount > 0) {
+                    Text(
+                        "🖼️ $imageCount image${if (imageCount > 1) "s" else ""} attached",
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                val displayText = if (message.content.isEmpty() && message.isStreaming) "…" else message.content
+                MarkdownText(text = displayText)
+            }
         }
     }
 }

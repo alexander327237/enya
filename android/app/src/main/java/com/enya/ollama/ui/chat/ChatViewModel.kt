@@ -12,13 +12,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+enum class AttachmentKind { IMAGE, TEXT, UNSUPPORTED }
+
+data class ChatAttachment(
+    val id: String,
+    val name: String,
+    val kind: AttachmentKind,
+    val imageBase64: String? = null,
+    val textContent: String? = null
+)
+
 data class ChatUiState(
     val chat: ChatEntity? = null,
     val messages: List<MessageEntity> = emptyList(),
     val availableModels: List<String> = emptyList(),
     val modelsError: String? = null,
     val isSending: Boolean = false,
-    val isModelPickerOpen: Boolean = false
+    val isModelPickerOpen: Boolean = false,
+    val attachments: List<ChatAttachment> = emptyList()
 )
 
 class ChatViewModel(
@@ -68,12 +79,30 @@ class ChatViewModel(
         setModelPickerOpen(false)
     }
 
+    fun addAttachment(attachment: ChatAttachment) {
+        _uiState.update { it.copy(attachments = it.attachments + attachment) }
+    }
+
+    fun removeAttachment(id: String) {
+        _uiState.update { it.copy(attachments = it.attachments.filterNot { a -> a.id == id }) }
+    }
+
     fun sendMessage(text: String) {
-        if (text.isBlank() || _uiState.value.isSending) return
+        val attachments = _uiState.value.attachments
+        if ((text.isBlank() && attachments.isEmpty()) || _uiState.value.isSending) return
+
+        val images = attachments.mapNotNull { it.imageBase64 }
+        val attachedText = attachments.mapNotNull { a ->
+            a.textContent?.let { "\n\n[Attached file: ${a.name}]\n```\n$it\n```" }
+        }.joinToString("")
+        val finalText = (text.trim() + attachedText).trim()
+
+        _uiState.update { it.copy(attachments = emptyList()) }
+
         sendJob = viewModelScope.launch {
             _uiState.update { it.copy(isSending = true) }
             try {
-                repo.sendMessage(chatId, text.trim())
+                repo.sendMessage(chatId, finalText, images)
             } finally {
                 _uiState.update { it.copy(isSending = false) }
             }

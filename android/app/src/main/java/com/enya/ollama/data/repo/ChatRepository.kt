@@ -47,13 +47,27 @@ class ChatRepository(
      * Persists the user's message, then streams the assistant's reply into a single
      * placeholder row, updating it incrementally as tokens arrive.
      */
-    suspend fun sendMessage(chatId: Long, userText: String) {
+    suspend fun sendMessage(chatId: Long, userText: String, images: List<String> = emptyList()) {
         val chat = db.chatDao().getById(chatId) ?: return
-        db.messageDao().insert(MessageEntity(chatId = chatId, role = Role.USER, content = userText))
+
+        if (db.messageDao().getForChat(chatId).isEmpty()) {
+            db.chatDao().updateTitle(chatId, autoTitleFrom(userText))
+        }
+
+        db.messageDao().insert(
+            MessageEntity(
+                chatId = chatId,
+                role = Role.USER,
+                content = userText,
+                images = images.takeIf { it.isNotEmpty() }?.joinToString("|")
+            )
+        )
         db.chatDao().touch(chatId)
 
         val project = chat.projectId?.let { db.projectDao().getById(it) }
-        val history = db.messageDao().getForChat(chatId).map { OllamaMessage(it.role, it.content) }
+        val history = db.messageDao().getForChat(chatId).map {
+            OllamaMessage(it.role, it.content, images = it.images?.split("|")?.filter { s -> s.isNotEmpty() })
+        }
         val outgoing = buildList {
             project?.systemPrompt?.takeIf { it.isNotBlank() }?.let { add(OllamaMessage(Role.SYSTEM, it)) }
             addAll(history)
@@ -88,5 +102,10 @@ class ChatRepository(
                 db.chatDao().touch(chatId)
             }
         }
+    }
+
+    private fun autoTitleFrom(userText: String): String {
+        val firstLine = userText.trim().lineSequence().firstOrNull { it.isNotBlank() } ?: "New chat"
+        return if (firstLine.length > 40) firstLine.take(40).trimEnd() + "…" else firstLine
     }
 }

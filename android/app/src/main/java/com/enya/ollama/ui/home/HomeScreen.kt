@@ -58,6 +58,10 @@ fun HomeScreen(
     var showNewChatDialog by remember { mutableStateOf<Long?>(null) } // holds preselected projectId, UNFILED_KEY = none chosen yet
     var showNewProjectDialog by remember { mutableStateOf(false) }
 
+    // Re-checks connectivity every time this screen (re)enters composition, e.g. when
+    // coming back from Settings after fixing the server address.
+    LaunchedEffect(Unit) { viewModel.refreshModels() }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -143,8 +147,8 @@ fun HomeScreen(
             preselectedProjectId = preselected.takeIf { it != UNFILED_KEY },
             models = models,
             onDismiss = { showNewChatDialog = null },
-            onCreate = { projectId, title, model ->
-                viewModel.createChat(projectId, title, model) { chatId ->
+            onCreate = { projectId, model ->
+                viewModel.createChat(projectId, "New chat", model) { chatId ->
                     showNewChatDialog = null
                     onOpenChat(chatId)
                 }
@@ -232,9 +236,8 @@ private fun NewChatDialog(
     preselectedProjectId: Long?,
     models: List<String>,
     onDismiss: () -> Unit,
-    onCreate: (Long?, String, String) -> Unit
+    onCreate: (Long?, String) -> Unit
 ) {
-    var title by remember { mutableStateOf("") }
     var projectId by remember { mutableStateOf(preselectedProjectId) }
     var model by remember(models) { mutableStateOf(models.firstOrNull().orEmpty()) }
     var projectExpanded by remember { mutableStateOf(false) }
@@ -249,14 +252,7 @@ private fun NewChatDialog(
         title = { Text("New chat") },
         text = {
             Column {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Title (optional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Text("Project", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
+                Text("Project", style = MaterialTheme.typography.labelMedium)
                 Box {
                     OutlinedButton(onClick = { projectExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(
@@ -289,7 +285,7 @@ private fun NewChatDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onCreate(projectId, title, model) },
+                onClick = { onCreate(projectId, model) },
                 enabled = model.isNotBlank()
             ) { Text("Create") }
         },

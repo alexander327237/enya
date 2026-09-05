@@ -53,7 +53,9 @@ data class MessageEntity(
     val content: String,
     val createdAt: Long = System.currentTimeMillis(),
     val isStreaming: Boolean = false,
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    /** Base64-encoded image attachments, joined with "|" (base64 never contains that char). */
+    val images: String? = null
 )
 
 object Role {

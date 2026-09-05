@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class OllamaMessage(
     val role: String,
-    val content: String
+    val content: String,
+    val images: List<String>? = null
 )
 
 @Serializable

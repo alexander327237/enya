@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [ProjectEntity::class, ChatEntity::class, MessageEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -24,7 +24,11 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "enya.db"
-                ).build().also { instance = it }
+                )
+                    // App is under active development; wipe local history on schema changes
+                    // instead of writing migrations for a pre-release build.
+                    .fallbackToDestructiveMigration()
+                    .build().also { instance = it }
             }
     }
 }
