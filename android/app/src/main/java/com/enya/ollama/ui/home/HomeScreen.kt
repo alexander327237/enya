@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -17,13 +19,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -226,7 +226,6 @@ private fun NewProjectDialog(onDismiss: () -> Unit, onCreate: (String, String?) 
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun NewChatDialog(
     projects: List<ProjectEntity>,
@@ -257,20 +256,16 @@ private fun NewChatDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = projectExpanded,
-                    onExpandedChange = { projectExpanded = it },
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = projects.find { it.id == projectId }?.name ?: "No project",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Project") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = projectExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(expanded = projectExpanded, onDismissRequest = { projectExpanded = false }) {
+                Text("Project", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
+                Box {
+                    OutlinedButton(onClick = { projectExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            projects.find { it.id == projectId }?.name ?: "No project",
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = projectExpanded, onDismissRequest = { projectExpanded = false }) {
                         DropdownMenuItem(text = { Text("No project") }, onClick = { projectId = null; projectExpanded = false })
                         projects.forEach { p ->
                             DropdownMenuItem(text = { Text(p.name) }, onClick = { projectId = p.id; projectExpanded = false })
@@ -278,20 +273,13 @@ private fun NewChatDialog(
                     }
                 }
 
-                ExposedDropdownMenuBox(
-                    expanded = modelExpanded,
-                    onExpandedChange = { modelExpanded = it },
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = model.ifEmpty { "No models found" },
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Model") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = modelExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth()
-                    )
-                    ExposedDropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
+                Text("Model", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
+                Box {
+                    OutlinedButton(onClick = { modelExpanded = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(model.ifEmpty { "No models found" }, modifier = Modifier.weight(1f))
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
                         models.forEach { m ->
                             DropdownMenuItem(text = { Text(m) }, onClick = { model = m; modelExpanded = false })
                         }
