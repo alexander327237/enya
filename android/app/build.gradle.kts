@@ -14,11 +14,27 @@ android {
         applicationId = "com.enya.ollama"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
+    }
+
+    signingConfigs {
+        // A fixed, checked-in debug key so every CI build shares the same signature and
+        // can be installed over the previous one. Without this, a fresh CI runner
+        // generates a brand new random debug key on every build, and Android silently
+        // refuses to install an update signed with a different key.
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
