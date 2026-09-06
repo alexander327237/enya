@@ -142,12 +142,12 @@ fun HomeScreen(
     }
 
     showNewChatDialog?.let { preselected ->
+        val projectId = preselected.takeIf { it != UNFILED_KEY }
         NewChatDialog(
-            projects = uiState.projects,
-            preselectedProjectId = preselected.takeIf { it != UNFILED_KEY },
+            projectName = projectId?.let { id -> uiState.projects.find { it.id == id }?.name },
             models = models,
             onDismiss = { showNewChatDialog = null },
-            onCreate = { projectId, model ->
+            onCreate = { model ->
                 viewModel.createChat(projectId, "New chat", model) { chatId ->
                     showNewChatDialog = null
                     onOpenChat(chatId)
@@ -232,15 +232,12 @@ private fun NewProjectDialog(onDismiss: () -> Unit, onCreate: (String, String?) 
 
 @Composable
 private fun NewChatDialog(
-    projects: List<ProjectEntity>,
-    preselectedProjectId: Long?,
+    projectName: String?,
     models: List<String>,
     onDismiss: () -> Unit,
-    onCreate: (Long?, String) -> Unit
+    onCreate: (String) -> Unit
 ) {
-    var projectId by remember { mutableStateOf(preselectedProjectId) }
     var model by remember(models) { mutableStateOf(models.firstOrNull().orEmpty()) }
-    var projectExpanded by remember { mutableStateOf(false) }
     var modelExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(models) {
@@ -249,27 +246,10 @@ private fun NewChatDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New chat") },
+        title = { Text(if (projectName != null) "New chat in $projectName" else "New chat") },
         text = {
             Column {
-                Text("Project", style = MaterialTheme.typography.labelMedium)
-                Box {
-                    OutlinedButton(onClick = { projectExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            projects.find { it.id == projectId }?.name ?: "No project",
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-                    DropdownMenu(expanded = projectExpanded, onDismissRequest = { projectExpanded = false }) {
-                        DropdownMenuItem(text = { Text("No project") }, onClick = { projectId = null; projectExpanded = false })
-                        projects.forEach { p ->
-                            DropdownMenuItem(text = { Text(p.name) }, onClick = { projectId = p.id; projectExpanded = false })
-                        }
-                    }
-                }
-
-                Text("Model", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
+                Text("Model", style = MaterialTheme.typography.labelMedium)
                 Box {
                     OutlinedButton(onClick = { modelExpanded = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(model.ifEmpty { "No models found" }, modifier = Modifier.weight(1f))
@@ -281,11 +261,19 @@ private fun NewChatDialog(
                         }
                     }
                 }
+                if (models.isEmpty()) {
+                    Text(
+                        "Can't see any models — check the server address in Settings.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onCreate(projectId, model) },
+                onClick = { onCreate(model) },
                 enabled = model.isNotBlank()
             ) { Text("Create") }
         },
