@@ -36,10 +36,10 @@ class OllamaApi {
         .retryOnConnectionFailure(true)
         .build()
 
-    suspend fun listModels(baseUrl: String): Result<List<String>> = withContext(Dispatchers.IO) {
+    suspend fun listModels(baseUrl: String, authHeader: String? = null): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
             val url = "${normalizeBaseUrl(baseUrl)}/api/tags"
-            val request = Request.Builder().url(url).get().build()
+            val request = Request.Builder().url(url).applyAuth(authHeader).get().build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     return@withContext Result.failure(IOException("HTTP ${response.code}"))
@@ -56,12 +56,13 @@ class OllamaApi {
     fun streamChat(
         baseUrl: String,
         model: String,
-        messages: List<OllamaMessage>
+        messages: List<OllamaMessage>,
+        authHeader: String? = null
     ): Flow<StreamEvent> = callbackFlow {
         val url = "${normalizeBaseUrl(baseUrl)}/api/chat"
         val payload = json.encodeToString(ChatRequest.serializer(), ChatRequest(model, messages, stream = true))
         val body = payload.toRequestBody("application/json; charset=utf-8".toMediaType())
-        val request = Request.Builder().url(url).post(body).build()
+        val request = Request.Builder().url(url).applyAuth(authHeader).post(body).build()
         val call = client.newCall(request)
 
         call.enqueue(object : Callback {
@@ -115,6 +116,9 @@ class OllamaApi {
 
         awaitClose { call.cancel() }
     }
+
+    private fun Request.Builder.applyAuth(authHeader: String?): Request.Builder =
+        if (!authHeader.isNullOrBlank()) header("Authorization", authHeader) else this
 
     private fun normalizeBaseUrl(raw: String): String {
         var url = raw.trim()

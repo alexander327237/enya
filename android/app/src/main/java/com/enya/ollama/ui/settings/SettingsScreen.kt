@@ -52,7 +52,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                "Point this at the machine running Ollama on your local network, e.g. http://192.168.1.42:11434",
+                "A local IP (http://192.168.1.42:11434), or any remote host — including https:// " +
+                    "if it's behind a reverse proxy or tunnel.",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.padding(bottom = 12.dp, top = 4.dp)
             )
@@ -64,8 +65,31 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 label = { Text("Server URL") }
             )
 
+            Text(
+                "Authorization header (optional)",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 20.dp)
+            )
+            Text(
+                "For a server that requires auth, e.g. behind a reverse proxy: the full header " +
+                    "value, such as \"Bearer sk-...\" or \"Basic <base64>\".",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(bottom = 12.dp, top = 4.dp)
+            )
+            OutlinedTextField(
+                value = uiState.authHeader,
+                onValueChange = viewModel::updateAuthHeaderDraft,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Authorization") }
+            )
+
             Column(modifier = Modifier.padding(top = 16.dp)) {
-                Button(onClick = { viewModel.save() }, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = { viewModel.save() },
+                    enabled = uiState.isDirty,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text("Save")
                 }
                 OutlinedButton(

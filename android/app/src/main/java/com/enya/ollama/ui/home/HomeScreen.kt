@@ -7,10 +7,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -23,9 +21,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -34,14 +33,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.enya.ollama.data.db.ChatEntity
 import com.enya.ollama.data.db.ProjectEntity
-
-private const val UNFILED_KEY = -1L
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,18 +50,32 @@ fun HomeScreen(
     onOpenSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val models by viewModel.availableModels.collectAsStateWithLifecycle()
     val modelsError by viewModel.modelsError.collectAsStateWithLifecycle()
 
     var showMenu by remember { mutableStateOf(false) }
-    var showNewChatDialog by remember { mutableStateOf<Long?>(null) } // holds preselected projectId, UNFILED_KEY = none chosen yet
     var showNewProjectDialog by remember { mutableStateOf(false) }
+    var renamingChat by remember { mutableStateOf<ChatEntity?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Re-checks connectivity every time this screen (re)enters composition, e.g. when
     // coming back from Settings after fixing the server address.
     LaunchedEffect(Unit) { viewModel.refreshModels() }
 
+    fun createChat(projectId: Long?) {
+        viewModel.quickCreateChat(
+            projectId = projectId,
+            onCreated = onOpenChat,
+            onNoModelsAvailable = {
+                scope.launch {
+                    snackbarHostState.showSnackbar("No models available — check the server address in Settings.")
+                }
+            }
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Enya") },
@@ -81,7 +94,7 @@ fun HomeScreen(
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
                         text = { Text("New chat") },
-                        onClick = { showMenu = false; showNewChatDialog = UNFILED_KEY }
+                        onClick = { showMenu = false; createChat(null) }
                     )
                     DropdownMenuItem(
                         text = { Text("New project") },
@@ -111,8 +124,9 @@ fun HomeScreen(
                         chats = uiState.chats.filter { it.projectId == project.id },
                         onOpenChat = onOpenChat,
                         onDeleteChat = viewModel::deleteChat,
+                        onRenameChat = { renamingChat = it },
                         onDeleteProject = { viewModel.deleteProject(project) },
-                        onAddChat = { showNewChatDialog = project.id }
+                        onAddChat = { createChat(project.id) }
                     )
                 }
                 if (unfiledChats.isNotEmpty() || uiState.projects.isEmpty()) {
@@ -124,7 +138,12 @@ fun HomeScreen(
                         )
                     }
                     items(unfiledChats, key = { it.id }) { chat ->
-                        ChatRow(chat, onClick = { onOpenChat(chat.id) }, onDelete = { viewModel.deleteChat(chat) })
+                        ChatRow(
+                            chat,
+                            onClick = { onOpenChat(chat.id) },
+                            onDelete = { viewModel.deleteChat(chat) },
+                            onRename = { renamingChat = chat }
+                        )
                     }
                 }
             }
@@ -141,17 +160,13 @@ fun HomeScreen(
         )
     }
 
-    showNewChatDialog?.let { preselected ->
-        val projectId = preselected.takeIf { it != UNFILED_KEY }
-        NewChatDialog(
-            projectName = projectId?.let { id -> uiState.projects.find { it.id == id }?.name },
-            models = models,
-            onDismiss = { showNewChatDialog = null },
-            onCreate = { model ->
-                viewModel.createChat(projectId, "New chat", model) { chatId ->
-                    showNewChatDialog = null
-                    onOpenChat(chatId)
-                }
+    renamingChat?.let { chat ->
+        RenameChatDialog(
+            chat = chat,
+            onDismiss = { renamingChat = null },
+            onRename = { title ->
+                viewModel.renameChat(chat, title)
+                renamingChat = null
             }
         )
     }
@@ -163,6 +178,7 @@ private fun ProjectSection(
     chats: List<ChatEntity>,
     onOpenChat: (Long) -> Unit,
     onDeleteChat: (ChatEntity) -> Unit,
+    onRenameChat: (ChatEntity) -> Unit,
     onDeleteProject: () -> Unit,
     onAddChat: () -> Unit
 ) {
@@ -180,13 +196,18 @@ private fun ProjectSection(
             }
         }
         chats.forEach { chat ->
-            ChatRow(chat, onClick = { onOpenChat(chat.id) }, onDelete = { onDeleteChat(chat) })
+            ChatRow(
+                chat,
+                onClick = { onOpenChat(chat.id) },
+                onDelete = { onDeleteChat(chat) },
+                onRename = { onRenameChat(chat) }
+            )
         }
     }
 }
 
 @Composable
-private fun ChatRow(chat: ChatEntity, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun ChatRow(chat: ChatEntity, onClick: () -> Unit, onDelete: () -> Unit, onRename: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -199,6 +220,7 @@ private fun ChatRow(chat: ChatEntity, onClick: () -> Unit, onDelete: () -> Unit)
                 Text(chat.model, style = MaterialTheme.typography.bodySmall)
             }
         }
+        IconButton(onClick = onRename) { Text("✎") }
         IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Delete chat") }
     }
 }
@@ -231,51 +253,21 @@ private fun NewProjectDialog(onDismiss: () -> Unit, onCreate: (String, String?) 
 }
 
 @Composable
-private fun NewChatDialog(
-    projectName: String?,
-    models: List<String>,
-    onDismiss: () -> Unit,
-    onCreate: (String) -> Unit
-) {
-    var model by remember(models) { mutableStateOf(models.firstOrNull().orEmpty()) }
-    var modelExpanded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(models) {
-        if (model.isEmpty()) model = models.firstOrNull().orEmpty()
-    }
-
+private fun RenameChatDialog(chat: ChatEntity, onDismiss: () -> Unit, onRename: (String) -> Unit) {
+    var title by remember { mutableStateOf(chat.title) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (projectName != null) "New chat in $projectName" else "New chat") },
+        title = { Text("Rename chat") },
         text = {
-            Column {
-                Text("Model", style = MaterialTheme.typography.labelMedium)
-                Box {
-                    OutlinedButton(onClick = { modelExpanded = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(model.ifEmpty { "No models found" }, modifier = Modifier.weight(1f))
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-                    DropdownMenu(expanded = modelExpanded, onDismissRequest = { modelExpanded = false }) {
-                        models.forEach { m ->
-                            DropdownMenuItem(text = { Text(m) }, onClick = { model = m; modelExpanded = false })
-                        }
-                    }
-                }
-                if (models.isEmpty()) {
-                    Text(
-                        "Can't see any models — check the server address in Settings.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
-            Button(
-                onClick = { onCreate(model) },
-                enabled = model.isNotBlank()
-            ) { Text("Create") }
+            Button(onClick = { onRename(title) }, enabled = title.isNotBlank()) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )

@@ -41,7 +41,14 @@ class ChatRepository(
         settings.setLastModel(model)
     }
 
-    suspend fun fetchModels(): Result<List<String>> = api.listModels(settings.serverUrl.first())
+    suspend fun fetchModels(): Result<List<String>> =
+        api.listModels(settings.serverUrl.first(), settings.authHeader.first())
+
+    suspend fun lastOrFirstAvailableModel(): String? {
+        val models = fetchModels().getOrDefault(emptyList())
+        val last = settings.lastModel.first()
+        return last?.takeIf { it in models } ?: models.firstOrNull()
+    }
 
     /**
      * Persists the user's message, then streams the assistant's reply into a single
@@ -78,11 +85,12 @@ class ChatRepository(
         )
 
         val baseUrl = settings.serverUrl.first()
+        val authHeader = settings.authHeader.first()
         val accumulated = StringBuilder()
         var hadError = false
 
         try {
-            api.streamChat(baseUrl, chat.model, outgoing).collect { event ->
+            api.streamChat(baseUrl, chat.model, outgoing, authHeader).collect { event ->
                 when (event) {
                     is StreamEvent.Delta -> {
                         accumulated.append(event.text)

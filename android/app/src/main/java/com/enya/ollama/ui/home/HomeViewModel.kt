@@ -49,12 +49,27 @@ class HomeViewModel(
         }
     }
 
-    fun createChat(projectId: Long?, title: String, model: String, onCreated: (Long) -> Unit) {
+    /**
+     * Creates and opens a chat immediately, with no dialog: the model defaults to whichever
+     * was last used (falling back to the first available one), and the title is filled in
+     * automatically from the first message once the user sends it.
+     */
+    fun quickCreateChat(projectId: Long?, onCreated: (Long) -> Unit, onNoModelsAvailable: () -> Unit) {
         viewModelScope.launch {
-            val id = repo.createChat(projectId, title.ifBlank { "New chat" }, model)
+            val model = repo.lastOrFirstAvailableModel()
+            if (model == null) {
+                onNoModelsAvailable()
+                return@launch
+            }
+            val id = repo.createChat(projectId, "New chat", model)
             settings.setLastModel(model)
             onCreated(id)
         }
+    }
+
+    fun renameChat(chat: ChatEntity, title: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch { repo.renameChat(chat.id, title.trim()) }
     }
 
     fun createProject(name: String, systemPrompt: String?) {

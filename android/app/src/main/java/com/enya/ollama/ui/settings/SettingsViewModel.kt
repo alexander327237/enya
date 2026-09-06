@@ -7,6 +7,7 @@ import com.enya.ollama.data.repo.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -19,8 +20,13 @@ sealed interface ConnectionTestStatus {
 
 data class SettingsUiState(
     val serverUrl: String = "",
+    val authHeader: String = "",
+    val savedServerUrl: String = "",
+    val savedAuthHeader: String = "",
     val testStatus: ConnectionTestStatus = ConnectionTestStatus.Idle
-)
+) {
+    val isDirty: Boolean get() = serverUrl != savedServerUrl || authHeader != savedAuthHeader
+}
 
 class SettingsViewModel(
     private val repo: ChatRepository,
@@ -32,7 +38,17 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            settings.serverUrl.collect { url -> _uiState.update { it.copy(serverUrl = url) } }
+            combine(settings.serverUrl, settings.authHeader) { url, auth -> url to (auth ?: "") }
+                .collect { (url, auth) ->
+                    _uiState.update {
+                        it.copy(
+                            serverUrl = url,
+                            authHeader = auth,
+                            savedServerUrl = url,
+                            savedAuthHeader = auth
+                        )
+                    }
+                }
         }
     }
 
@@ -40,14 +56,18 @@ class SettingsViewModel(
         _uiState.update { it.copy(serverUrl = url, testStatus = ConnectionTestStatus.Idle) }
     }
 
+    fun updateAuthHeaderDraft(value: String) {
+        _uiState.update { it.copy(authHeader = value, testStatus = ConnectionTestStatus.Idle) }
+    }
+
     fun save() {
-        viewModelScope.launch { settings.setServerUrl(_uiState.value.serverUrl) }
+        viewModelScope.launch { persist() }
     }
 
     fun testConnection() {
         viewModelScope.launch {
             _uiState.update { it.copy(testStatus = ConnectionTestStatus.Testing) }
-            settings.setServerUrl(_uiState.value.serverUrl)
+            persist()
             repo.fetchModels()
                 .onSuccess { models ->
                     _uiState.update { it.copy(testStatus = ConnectionTestStatus.Success(models.size)) }
@@ -58,5 +78,12 @@ class SettingsViewModel(
                     }
                 }
         }
+    }
+
+    private suspend fun persist() {
+        val state = _uiState.value
+        settings.setServerUrl(state.serverUrl)
+        settings.setAuthHeader(state.authHeader)
+        _uiState.update { it.copy(savedServerUrl = state.serverUrl, savedAuthHeader = state.authHeader) }
     }
 }
