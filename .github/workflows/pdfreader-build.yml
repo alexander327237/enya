@@ -1,0 +1,63 @@
+name: PDF Reader Build
+
+on:
+  push:
+    paths:
+      - "pdfreader/**"
+      - ".github/workflows/pdfreader-build.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pdfreader
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-pdfreader-${{ runner.os }}-${{ hashFiles('pdfreader/**/*.gradle*', 'pdfreader/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-pdfreader-${{ runner.os }}-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdfreader-debug-apk
+          path: pdfreader/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Commit built APK back to the repo
+        working-directory: .
+        run: |
+          mkdir -p dist
+          cp pdfreader/app/build/outputs/apk/debug/app-debug.apk dist/pdfreader-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f dist/pdfreader-debug.apk
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update built PDF Reader debug APK"
+            git push
+          fi

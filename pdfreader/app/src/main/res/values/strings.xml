@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PDF Reader</string>
+    <string name="open_pdf">Open PDF</string>
+    <string name="recent_files">Recent files</string>
+    <string name="no_recent_title">No documents yet</string>
+    <string name="no_recent_hint">Tap “Open PDF” to pick a file, or open a PDF from your file manager, browser or messenger and choose PDF Reader.</string>
+    <string name="remove_from_list">Remove from list</string>
+    <string name="page_of">Page %1$d of %2$d</string>
+    <string name="page_counter">%1$d / %2$d</string>
+    <string name="back">Back</string>
+    <string name="menu">Menu</string>
+    <string name="previous_page">Previous page</string>
+    <string name="next_page">Next page</string>
+    <string name="go_to_page">Go to page</string>
+    <string name="page_number">Page number (1–%1$d)</string>
+    <string name="night_mode">Night mode</string>
+    <string name="vertical_scroll">Vertical scrolling</string>
+    <string name="share">Share</string>
+    <string name="open_with">Open with…</string>
+    <string name="file_info">File info</string>
+    <string name="info_name">Name</string>
+    <string name="info_pages">Pages</string>
+    <string name="info_size">Size</string>
+    <string name="cancel">Cancel</string>
+    <string name="ok">OK</string>
+    <string name="close">Close</string>
+    <string name="loading">Opening document…</string>
+    <string name="error_title">Could not open the document</string>
+    <string name="error_password">This PDF is password-protected. Encrypted documents are not supported.</string>
+    <string name="error_corrupt">The file is not a valid PDF or is damaged.</string>
+    <string name="error_no_access">The file is no longer available or access to it was revoked. Open it again from the file manager.</string>
+    <string name="error_page">Failed to render this page.</string>
+    <string name="last_opened">Opened %1$s</string>
+</resources>

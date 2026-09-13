@@ -11,3 +11,6 @@ android/app/build/
 android/build/
 *.apk
 *.aab
+pdfreader/app/build/
+pdfreader/build/
+local.properties

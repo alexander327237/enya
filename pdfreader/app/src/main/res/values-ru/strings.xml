@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PDF Ридер</string>
+    <string name="open_pdf">Открыть PDF</string>
+    <string name="recent_files">Недавние файлы</string>
+    <string name="no_recent_title">Документов пока нет</string>
+    <string name="no_recent_hint">Нажмите «Открыть PDF», чтобы выбрать файл, или откройте PDF из проводника, браузера или мессенджера и выберите PDF Ридер.</string>
+    <string name="remove_from_list">Убрать из списка</string>
+    <string name="page_of">Страница %1$d из %2$d</string>
+    <string name="page_counter">%1$d / %2$d</string>
+    <string name="back">Назад</string>
+    <string name="menu">Меню</string>
+    <string name="previous_page">Предыдущая страница</string>
+    <string name="next_page">Следующая страница</string>
+    <string name="go_to_page">Перейти к странице</string>
+    <string name="page_number">Номер страницы (1–%1$d)</string>
+    <string name="night_mode">Ночной режим</string>
+    <string name="vertical_scroll">Вертикальная прокрутка</string>
+    <string name="share">Поделиться</string>
+    <string name="open_with">Открыть в…</string>
+    <string name="file_info">О файле</string>
+    <string name="info_name">Имя</string>
+    <string name="info_pages">Страниц</string>
+    <string name="info_size">Размер</string>
+    <string name="cancel">Отмена</string>
+    <string name="ok">ОК</string>
+    <string name="close">Закрыть</string>
+    <string name="loading">Открываем документ…</string>
+    <string name="error_title">Не удалось открыть документ</string>
+    <string name="error_password">PDF защищён паролем. Зашифрованные документы не поддерживаются.</string>
+    <string name="error_corrupt">Файл не является корректным PDF или повреждён.</string>
+    <string name="error_no_access">Файл больше недоступен или доступ к нему отозван. Откройте его заново из проводника.</string>
+    <string name="error_page">Не удалось отрисовать страницу.</string>
+    <string name="last_opened">Открыт %1$s</string>
+</resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- page -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,26 h28 l14,14 v42 a3,3 0 0 1 -3,3 h-39 a3,3 0 0 1 -3,-3 v-53 a3,3 0 0 1 3,-3 z" />
+    <!-- folded corner -->
+    <path
+        android:fillColor="#FFCDD2"
+        android:pathData="M62,26 v11 a3,3 0 0 0 3,3 h11 z" />
+    <!-- text lines -->
+    <path
+        android:fillColor="#C62828"
+        android:pathData="M40,48 h28 v4 h-28 z M40,56 h28 v4 h-28 z M40,64 h18 v4 h-18 z" />
+    <!-- PDF badge -->
+    <path
+        android:fillColor="#B71C1C"
+        android:pathData="M28,66 h36 a4,4 0 0 1 4,4 v8 a4,4 0 0 1 -4,4 h-36 a4,4 0 0 1 -4,-4 v-8 a4,4 0 0 1 4,-4 z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M31,69.5 h4.5 a2.75,2.75 0 0 1 0,5.5 h-2.5 v3.5 h-2 z M33,71.3 v2 h2.3 a1,1 0 0 0 0,-2 z M39,69.5 h4 a4.5,4.5 0 0 1 0,9 h-4 z M41,71.3 v5.4 h1.8 a2.7,2.7 0 0 0 0,-5.4 z M50,69.5 h6 v1.8 h-4 v1.9 h3.5 v1.8 h-3.5 v3.5 h-2 z" />
+</vector>
