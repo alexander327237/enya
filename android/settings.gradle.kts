@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Enya"
 include(":app")
+include(":txtvoice")
