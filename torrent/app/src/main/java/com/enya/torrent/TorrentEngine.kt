@@ -327,7 +327,8 @@ object TorrentEngine {
         val list = handles.entries.mapNotNull { (hash, handle) ->
             try {
                 if (!handle.isValid) return@mapNotNull null
-                val st = handle.status()
+                // Without QUERY_NAME libtorrent leaves the name blank.
+                val st = handle.status(TorrentHandle.QUERY_NAME)
                 val paused = handle.flags.and_(TorrentFlags.PAUSED).non_zero()
                 val name = st.name().ifBlank { hash.take(12) }
                 Item(
@@ -380,7 +381,7 @@ object TorrentEngine {
             AlertType.METADATA_RECEIVED -> refresh()
             AlertType.TORRENT_FINISHED -> {
                 val a = alert as TorrentFinishedAlert
-                val name = try { a.handle().status().name() } catch (t: Throwable) { "" }
+                val name = try { a.handle().status(TorrentHandle.QUERY_NAME).name() } catch (t: Throwable) { "" }
                 post("Загрузка завершена: $name")
                 refresh()
             }
