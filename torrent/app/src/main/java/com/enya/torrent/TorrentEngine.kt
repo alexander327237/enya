@@ -369,7 +369,11 @@ object TorrentEngine {
                 if (a.error().isError) {
                     post("Ошибка добавления: ${a.error().message}")
                 } else {
-                    handles[hash] = a.handle()
+                    // The handle inside an alert belongs to the alert and is freed right after this
+                    // callback; keeping it and calling is_valid()/status() later is a use-after-free
+                    // that crashes the process in native code. Ask the session for an owned copy.
+                    val owned = session.find(a.handle().infoHash())
+                    if (owned != null) handles[hash] = owned
                 }
                 refresh()
             }
