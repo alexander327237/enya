@@ -11,3 +11,6 @@ android/app/build/
 android/build/
 *.apk
 *.aab
+torrent/app/build/
+torrent/build/
+torrent/local.properties

@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Enya Torrent</string>
+    <string name="notification_channel">Загрузки</string>
+    <string name="notification_title">Enya Torrent работает</string>
+</resources>
