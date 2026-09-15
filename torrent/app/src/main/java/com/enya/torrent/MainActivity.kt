@@ -55,7 +55,13 @@ class MainActivity : ComponentActivity() {
         TorrentEngine.updateSaveDir(this)
         crashLog = CrashLog.read(this)
 
-        TorrentService.start(this)
+        // Start the download service only after the first frame, when the main thread is idle
+        // again: the service must answer startForegroundService() within seconds, and a cold
+        // Compose start can keep the main thread busy long enough to miss that window.
+        // Adding a torrent starts the service on demand.
+        window.decorView.post {
+            if (TorrentEngine.isRunning || TorrentEngine.hasSavedTorrents()) ensureService()
+        }
         handleIntent(intent)
 
         lifecycleScope.launch {
@@ -68,7 +74,7 @@ class MainActivity : ComponentActivity() {
             EnyaTorrentTheme {
                 TorrentScreen(
                     onAdd = { text ->
-                        if (!TorrentEngine.isRunning) TorrentService.start(this)
+                        ensureService()
                         TorrentEngine.add(text)
                     },
                     onPickFile = { pickTorrent.launch(arrayOf("application/x-bittorrent", "*/*")) },
@@ -90,6 +96,10 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    private fun ensureService() {
+        if (!TorrentEngine.isRunning) TorrentService.start(this)
     }
 
     override fun onResume() {
@@ -155,6 +165,7 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         if (intent?.action != Intent.ACTION_VIEW) return
         val uri = intent.data ?: return
+        ensureService()
         if (uri.scheme.equals("magnet", ignoreCase = true)) {
             TorrentEngine.addMagnet(uri.toString())
         } else {
@@ -166,6 +177,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun addFromUri(uri: Uri) {
+        ensureService()
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }

@@ -172,6 +172,9 @@ object TorrentEngine {
 
     val isRunning: Boolean get() = session.isRunning
 
+    fun hasSavedTorrents(): Boolean =
+        storeDir.listFiles()?.any { it.extension == "magnet" || it.extension == "torrent" } == true
+
     /** Call after the device switched networks so libtorrent rebinds its sockets. */
     fun onNetworkChanged() {
         if (!session.isRunning) return
