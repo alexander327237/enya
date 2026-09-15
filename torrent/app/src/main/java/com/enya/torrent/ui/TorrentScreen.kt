@@ -55,9 +55,12 @@ fun TorrentScreen(
     onRemove: (hash: String, deleteFiles: Boolean) -> Unit,
     onStopService: () -> Unit,
     onStartService: () -> Unit,
+    onRequestStorage: () -> Unit,
 ) {
     val torrents by TorrentEngine.torrents.collectAsStateWithLifecycle()
     val running by TorrentEngine.running.collectAsStateWithLifecycle()
+    val saveDir by TorrentEngine.saveDir.collectAsStateWithLifecycle()
+    val publicAccess by TorrentEngine.publicAccess.collectAsStateWithLifecycle()
     var input by rememberSaveable { mutableStateOf("") }
     var pendingRemove by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -109,10 +112,23 @@ fun TorrentScreen(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Файлы сохраняются в: ${TorrentEngine.saveDir.absolutePath}",
+                "Файлы сохраняются в: ${saveDir?.absolutePath ?: "…"}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (!publicAccess) {
+                Spacer(Modifier.height(8.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Нет доступа к папке «Загрузки». Пока файлы сохраняются в папку приложения.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Button(onClick = onRequestStorage) { Text("Разрешить доступ к Загрузкам") }
+                    }
+                }
+            }
             Spacer(Modifier.height(12.dp))
 
             if (torrents.isEmpty()) {

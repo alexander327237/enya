@@ -21,6 +21,11 @@ class MainActivity : ComponentActivity() {
     private val requestNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val requestStorage =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            TorrentEngine.updateSaveDir(this)
+        }
+
     private val pickTorrent =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let { addFromUri(it) }
@@ -35,6 +40,9 @@ class MainActivity : ComponentActivity() {
         ) {
             requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+
+        TorrentEngine.updateSaveDir(this)
+        if (!Storage.hasPublicAccess(this)) requestStorageAccess()
 
         TorrentService.start(this)
         handleIntent(intent)
@@ -58,8 +66,29 @@ class MainActivity : ComponentActivity() {
                     onRemove = TorrentEngine::remove,
                     onStopService = { TorrentService.stop(this) },
                     onStartService = { TorrentService.start(this) },
+                    onRequestStorage = ::requestStorageAccess,
                 )
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // The user may have just granted "All files access" in system settings.
+        TorrentEngine.updateSaveDir(this)
+    }
+
+    /** Android 11+: opens the "All files access" settings page; older versions: a runtime permission dialog. */
+    private fun requestStorageAccess() {
+        val settings = Storage.allFilesAccessIntent(this)
+        if (settings != null) {
+            try {
+                startActivity(settings)
+            } catch (t: Throwable) {
+                Toast.makeText(this, "Не удалось открыть настройки: ${t.message}", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            requestStorage.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
     }
 

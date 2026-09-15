@@ -1,7 +1,6 @@
 package com.enya.torrent
 
 import android.content.Context
-import android.os.Environment
 import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,25 +65,35 @@ object TorrentEngine {
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 16)
     val messages = _messages.asSharedFlow()
 
-    /** Where downloaded files land. */
-    lateinit var saveDir: File
-        private set
+    /** Where new downloads land. Re-evaluated via [updateSaveDir] when storage permissions change. */
+    private val _saveDir = MutableStateFlow<File?>(null)
+    val saveDir: StateFlow<File?> = _saveDir.asStateFlow()
+
+    private val _publicAccess = MutableStateFlow(false)
+    val publicAccess: StateFlow<Boolean> = _publicAccess.asStateFlow()
 
     /** Where we remember magnet links / .torrent files so downloads survive a restart. */
     private lateinit var storeDir: File
 
     fun init(context: Context) {
         val app = context.applicationContext
-        saveDir = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: File(app.filesDir, "downloads")
         storeDir = File(app.filesDir, "torrents")
-        saveDir.mkdirs()
         storeDir.mkdirs()
+        updateSaveDir(app)
 
         session.addListener(object : AlertListener {
             override fun types(): IntArray? = null
             override fun alert(alert: Alert<*>) = onAlert(alert)
         })
     }
+
+    /** Picks the public Downloads folder when the app may write there, else its private folder. */
+    fun updateSaveDir(context: Context) {
+        _publicAccess.value = Storage.hasPublicAccess(context)
+        _saveDir.value = Storage.resolveSaveDir(context)
+    }
+
+    private fun currentSaveDir(): File = _saveDir.value ?: error("TorrentEngine.init() was not called")
 
     @Synchronized
     fun start() {
@@ -171,18 +180,23 @@ object TorrentEngine {
         }.start()
     }
 
-    private fun enqueue(params: AddTorrentParams) {
+    private fun enqueue(params: AddTorrentParams, savePath: String? = null) {
         start()
-        params.savePath = saveDir.absolutePath
+        val path = savePath ?: currentSaveDir().absolutePath
+        params.savePath = path
+        File(storeDir, "${params.infoHashes.best.toHex()}.path").writeText(path)
         SessionHandle(session.swig()).asyncAddTorrent(params)
     }
 
     private fun restoreSaved() {
         storeDir.listFiles()?.forEach { file ->
             try {
+                // Keep downloading into the folder the torrent was originally added with.
+                val savedPath = File(storeDir, "${file.nameWithoutExtension}.path")
+                    .takeIf { it.isFile }?.readText()?.takeIf { File(it).isDirectory }
                 when (file.extension) {
-                    "magnet" -> enqueue(AddTorrentParams.parseMagnetUri(file.readText()))
-                    "torrent" -> enqueue(AddTorrentParams().apply { torrentInfo = TorrentInfo(file) })
+                    "magnet" -> enqueue(AddTorrentParams.parseMagnetUri(file.readText()), savedPath)
+                    "torrent" -> enqueue(AddTorrentParams().apply { torrentInfo = TorrentInfo(file) }, savedPath)
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "restore ${file.name} failed", t)
@@ -213,6 +227,7 @@ object TorrentEngine {
         errors.remove(hash)
         File(storeDir, "$hash.magnet").delete()
         File(storeDir, "$hash.torrent").delete()
+        File(storeDir, "$hash.path").delete()
         if (handle != null && handle.isValid) {
             if (deleteFiles) session.remove(handle, SessionHandle.DELETE_FILES) else session.remove(handle)
         }
