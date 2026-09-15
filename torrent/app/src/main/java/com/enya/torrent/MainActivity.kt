@@ -1,14 +1,22 @@
 package com.enya.torrent
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.enya.torrent.ui.TorrentScreen
@@ -31,18 +39,21 @@ class MainActivity : ComponentActivity() {
             uri?.let { addFromUri(it) }
         }
 
+    private var crashLog by mutableStateOf<String?>(null)
+    private var batteryOptimized by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            android.content.pm.PackageManager.PERMISSION_GRANTED
+            PackageManager.PERMISSION_GRANTED
         ) {
             requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         TorrentEngine.updateSaveDir(this)
-        if (!Storage.hasPublicAccess(this)) requestStorageAccess()
+        crashLog = CrashLog.read(this)
 
         TorrentService.start(this)
         handleIntent(intent)
@@ -67,6 +78,14 @@ class MainActivity : ComponentActivity() {
                     onStopService = { TorrentService.stop(this) },
                     onStartService = { TorrentService.start(this) },
                     onRequestStorage = ::requestStorageAccess,
+                    batteryOptimized = batteryOptimized,
+                    onRequestBattery = ::requestIgnoreBatteryOptimizations,
+                    crashLog = crashLog,
+                    onCopyCrashLog = ::copyCrashLog,
+                    onClearCrashLog = {
+                        CrashLog.clear(this)
+                        crashLog = null
+                    },
                 )
             }
         }
@@ -76,9 +95,24 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // The user may have just granted "All files access" in system settings.
         TorrentEngine.updateSaveDir(this)
+        batteryOptimized = !getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)
     }
 
-    /** Android 11+: opens the "All files access" settings page; older versions: a runtime permission dialog. */
+    /** Asks Android not to kill the download service in Doze / battery saver. */
+    private fun requestIgnoreBatteryOptimizations() {
+        try {
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")),
+            )
+        } catch (t: Throwable) {
+            Toast.makeText(this, "Не удалось открыть настройки: ${t.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /**
+     * Only ever called from the button on screen. Android 11+: opens the "All files access"
+     * settings page; older versions: a runtime permission dialog.
+     */
     private fun requestStorageAccess() {
         val settings = Storage.allFilesAccessIntent(this)
         if (settings != null) {
@@ -90,6 +124,13 @@ class MainActivity : ComponentActivity() {
         } else {
             requestStorage.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         }
+    }
+
+    private fun copyCrashLog() {
+        val text = crashLog ?: return
+        getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(ClipData.newPlainText("Enya Torrent crash log", text))
+        Toast.makeText(this, "Лог скопирован", Toast.LENGTH_SHORT).show()
     }
 
     override fun onNewIntent(intent: Intent) {

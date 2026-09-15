@@ -7,6 +7,7 @@ import android.app.NotificationManager
 class TorrentApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        CrashLog.install(this)
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(

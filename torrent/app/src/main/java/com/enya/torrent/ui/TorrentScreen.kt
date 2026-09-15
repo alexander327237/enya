@@ -56,6 +56,11 @@ fun TorrentScreen(
     onStopService: () -> Unit,
     onStartService: () -> Unit,
     onRequestStorage: () -> Unit,
+    batteryOptimized: Boolean = false,
+    onRequestBattery: () -> Unit = {},
+    crashLog: String? = null,
+    onCopyCrashLog: () -> Unit = {},
+    onClearCrashLog: () -> Unit = {},
 ) {
     val torrents by TorrentEngine.torrents.collectAsStateWithLifecycle()
     val running by TorrentEngine.running.collectAsStateWithLifecycle()
@@ -126,6 +131,43 @@ fun TorrentScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Button(onClick = onRequestStorage) { Text("Разрешить доступ к Загрузкам") }
+                    }
+                }
+            }
+            if (batteryOptimized) {
+                Spacer(Modifier.height(8.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Оптимизация батареи включена: система может останавливать загрузки в фоне.",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Button(onClick = onRequestBattery) { Text("Не ограничивать в фоне") }
+                    }
+                }
+            }
+            crashLog?.let { log ->
+                Spacer(Modifier.height(8.dp))
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "В прошлый раз приложение упало. Скопируйте лог и отправьте разработчику.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            log.lineSequence().take(6).joinToString("\n"),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 6,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = onCopyCrashLog) { Text("Скопировать лог") }
+                            TextButton(onClick = onClearCrashLog) { Text("Скрыть") }
+                        }
                     }
                 }
             }
