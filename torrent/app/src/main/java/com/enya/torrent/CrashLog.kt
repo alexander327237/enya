@@ -35,6 +35,39 @@ object CrashLog {
         }
     }
 
+    private fun marker(context: Context) = File(context.filesDir, "service.running")
+
+    /** Called when the download service starts; the marker is removed on a clean stop. */
+    fun markServiceRunning(context: Context) {
+        try {
+            marker(context).writeText("1")
+        } catch (_: Throwable) {
+        }
+    }
+
+    fun markServiceStopped(context: Context) {
+        marker(context).delete()
+    }
+
+    /**
+     * Native crashes (SIGSEGV/SIGBUS inside libtorrent) and kills by the system never reach the
+     * Java handler. If the service marker survived the previous run, record that instead.
+     */
+    fun checkUncleanShutdown(context: Context) {
+        val m = marker(context)
+        if (!m.exists()) return
+        m.delete()
+        try {
+            val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+            val entry = "=== $stamp ===\nПроцесс был завершён без Java-исключения: нативный сбой " +
+                "libtorrent или приложение убито системой (память / оптимизация батареи).\n\n"
+            val f = file(context)
+            val old = if (f.exists()) f.readText() else ""
+            f.writeText((entry + old).take(MAX_BYTES))
+        } catch (_: Throwable) {
+        }
+    }
+
     fun read(context: Context): String? = file(context).takeIf { it.exists() }?.readText()?.ifBlank { null }
 
     fun clear(context: Context) {

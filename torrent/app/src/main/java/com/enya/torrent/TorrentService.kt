@@ -46,6 +46,7 @@ class TorrentService : Service() {
             stopSelf()
             return
         }
+        CrashLog.markServiceRunning(this)
         acquireLocks()
         watchNetwork()
         scope.launch {
@@ -79,6 +80,7 @@ class TorrentService : Service() {
             }
         }
         releaseLocks()
+        CrashLog.markServiceStopped(this)
         // Stopping the session blocks for a while; never do that on the main thread.
         Thread { TorrentEngine.stop() }.start()
         super.onDestroy()

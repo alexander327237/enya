@@ -82,6 +82,7 @@ object TorrentEngine {
 
     /** Where we remember magnet links / .torrent files so downloads survive a restart. */
     private lateinit var storeDir: File
+    private lateinit var appContext: Context
 
     @Volatile
     private var initialized = false
@@ -90,6 +91,7 @@ object TorrentEngine {
         if (initialized) return
         initialized = true
         val app = context.applicationContext
+        appContext = app
         storeDir = File(app.filesDir, "torrents")
         storeDir.mkdirs()
         updateSaveDir(app)
@@ -114,6 +116,18 @@ object TorrentEngine {
 
     private fun currentSaveDir(): File = _saveDir.value ?: error("TorrentEngine.init() was not called")
 
+    /** Makes sure the folder exists and is writable; falls back to the app's own folder otherwise. */
+    private fun writableSaveDir(): File {
+        val dir = currentSaveDir()
+        if (Storage.isWritable(dir)) return dir
+        val fallback = Storage.appDownloadsDir(appContext)
+        Log.w(TAG, "save dir ${dir.absolutePath} is not writable, falling back to ${fallback.absolutePath}")
+        post("Папка ${dir.absolutePath} недоступна для записи, сохраняю в папку приложения")
+        _saveDir.value = fallback
+        _publicAccess.value = false
+        return fallback
+    }
+
     @Synchronized
     fun start() {
         if (session.isRunning) return
@@ -124,7 +138,13 @@ object TorrentEngine {
                 .activeLimit(8)
                 .connectionsLimit(200)
                 .listenInterfaces("0.0.0.0:6881,[::]:6881")
-            session.start(SessionParams(settings))
+            val params = SessionParams(settings)
+            // libtorrent 2.x defaults to memory-mapped file I/O. On Android's emulated storage
+            // (FUSE) mmap writes can raise SIGBUS and kill the process as soon as data arrives,
+            // and on 32-bit devices large files do not fit the address space. POSIX I/O is what
+            // libtorrent4j recommends for Android.
+            params.setPosixDiskIO()
+            session.start(params)
             _running.value = true
             restoreSaved()
             refresh()
@@ -231,7 +251,7 @@ object TorrentEngine {
         // Mark as pending before start()/restoreSaved() can see the stored file.
         if (!pending.add(hash) || handles.containsKey(hash)) return
         try {
-            val path = savePath ?: currentSaveDir().absolutePath
+            val path = savePath?.takeIf { Storage.isWritable(File(it)) } ?: writableSaveDir().absolutePath
             params.savePath = path
             File(storeDir, "$hash.path").writeText(path)
             SessionHandle(session.swig()).asyncAddTorrent(params)

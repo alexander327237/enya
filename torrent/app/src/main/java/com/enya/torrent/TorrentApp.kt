@@ -8,6 +8,7 @@ class TorrentApp : Application() {
     override fun onCreate() {
         super.onCreate()
         CrashLog.install(this)
+        CrashLog.checkUncleanShutdown(this)
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
             NotificationChannel(

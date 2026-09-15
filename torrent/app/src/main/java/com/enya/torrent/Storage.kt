@@ -44,7 +44,18 @@ object Storage {
 
     fun resolveSaveDir(context: Context): File {
         val dir = if (hasPublicAccess(context)) publicDownloadsDir() else appDownloadsDir(context)
+        return if (isWritable(dir)) dir else appDownloadsDir(context).also { it.mkdirs() }
+    }
+
+    /** Creates the folder if needed and proves we can actually create a file in it. */
+    fun isWritable(dir: File): Boolean = try {
         dir.mkdirs()
-        return if (dir.isDirectory) dir else appDownloadsDir(context).also { it.mkdirs() }
+        val probe = File(dir, ".enya-write-test")
+        probe.writeBytes(byteArrayOf(1))
+        val ok = probe.isFile
+        probe.delete()
+        dir.isDirectory && ok
+    } catch (t: Throwable) {
+        false
     }
 }
