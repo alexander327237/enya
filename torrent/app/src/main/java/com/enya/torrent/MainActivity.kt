@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
                     onRequestBattery = ::requestIgnoreBatteryOptimizations,
                     crashLog = crashLog,
                     onCopyCrashLog = ::copyCrashLog,
+                    onShareCrashLog = ::shareCrashLog,
                     onClearCrashLog = {
                         CrashLog.clear(this)
                         crashLog = null
@@ -123,6 +124,19 @@ class MainActivity : ComponentActivity() {
             }
         } else {
             requestStorage.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        }
+    }
+
+    private fun shareCrashLog() {
+        val text = crashLog ?: return
+        try {
+            val send = Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_SUBJECT, "Enya Torrent crash log")
+                .putExtra(Intent.EXTRA_TEXT, text)
+            startActivity(Intent.createChooser(send, "Отправить лог"))
+        } catch (t: Throwable) {
+            Toast.makeText(this, "Не удалось поделиться: ${t.message}", Toast.LENGTH_LONG).show()
         }
     }
 

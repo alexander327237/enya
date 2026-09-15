@@ -60,12 +60,26 @@ object CrashLog {
         try {
             val stamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
             val entry = "=== $stamp ===\nПроцесс был завершён без Java-исключения: нативный сбой " +
-                "libtorrent или приложение убито системой (память / оптимизация батареи).\n\n"
+                "libtorrent или приложение убито системой (память / оптимизация батареи).\n\n" +
+                "--- logcat (crash) ---\n" + logcat("crash") + "\n--- logcat (main, last 400) ---\n" + logcat("main") + "\n"
             val f = file(context)
             val old = if (f.exists()) f.readText() else ""
             f.writeText((entry + old).take(MAX_BYTES))
         } catch (_: Throwable) {
         }
+    }
+
+    /** An app may read its own log lines; the crash buffer carries native crash summaries too. */
+    private fun logcat(buffer: String): String = try {
+        val proc = ProcessBuilder("logcat", "-d", "-b", buffer, "-t", "400", "-v", "time")
+            .redirectErrorStream(true).start()
+        val out = proc.inputStream.bufferedReader().use { it.readText() }
+        proc.waitFor()
+        out.lineSequence()
+            .filter { buffer == "crash" || Regex("(Torrent|libtorrent|enya|AndroidRuntime|DEBUG|ActivityManager|lowmemory)").containsMatchIn(it) }
+            .joinToString("\n").ifBlank { "(пусто)" }
+    } catch (t: Throwable) {
+        "(logcat недоступен: ${t.message})"
     }
 
     fun read(context: Context): String? = file(context).takeIf { it.exists() }?.readText()?.ifBlank { null }

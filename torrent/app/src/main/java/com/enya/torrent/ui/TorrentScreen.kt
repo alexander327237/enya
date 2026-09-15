@@ -60,6 +60,7 @@ fun TorrentScreen(
     onRequestBattery: () -> Unit = {},
     crashLog: String? = null,
     onCopyCrashLog: () -> Unit = {},
+    onShareCrashLog: () -> Unit = {},
     onClearCrashLog: () -> Unit = {},
 ) {
     val torrents by TorrentEngine.torrents.collectAsStateWithLifecycle()
@@ -165,7 +166,8 @@ fun TorrentScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = onCopyCrashLog) { Text("Скопировать лог") }
+                            Button(onClick = onShareCrashLog) { Text("Отправить") }
+                            TextButton(onClick = onCopyCrashLog) { Text("Копировать") }
                             TextButton(onClick = onClearCrashLog) { Text("Скрыть") }
                         }
                     }
