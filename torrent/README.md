@@ -18,7 +18,11 @@
 ```bash
 cd torrent
 ./gradlew assembleDebug
-# APK: app/build/outputs/apk/debug/app-debug.apk
+# APK: app/build/outputs/apk/debug/app-<abi>-debug.apk
 ```
 
-Готовый debug APK лежит в `dist/enya-torrent-debug.apk` и пересобирается CI при каждом изменении в `torrent/`.
+Готовые debug APK лежат в `dist/` и пересобираются CI при каждом изменении в `torrent/`:
+
+- `enya-torrent-arm64-debug.apk` — большинство современных телефонов (рекомендуется);
+- `enya-torrent-armv7-debug.apk` — старые 32-битные устройства;
+- `enya-torrent-debug.apk` — универсальный APK со всеми архитектурами.

@@ -53,10 +53,12 @@ jobs:
         working-directory: .
         run: |
           mkdir -p dist
-          cp torrent/app/build/outputs/apk/debug/app-debug.apk dist/enya-torrent-debug.apk
+          cp torrent/app/build/outputs/apk/debug/app-universal-debug.apk dist/enya-torrent-debug.apk
+          cp torrent/app/build/outputs/apk/debug/app-arm64-v8a-debug.apk dist/enya-torrent-arm64-debug.apk
+          cp torrent/app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk dist/enya-torrent-armv7-debug.apk
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f dist/enya-torrent-debug.apk
+          git add -f dist/enya-torrent-debug.apk dist/enya-torrent-arm64-debug.apk dist/enya-torrent-armv7-debug.apk
           if ! git diff --cached --quiet; then
             git commit -m "chore: update built torrent debug APK"
             git push

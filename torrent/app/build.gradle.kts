@@ -50,6 +50,16 @@ android {
         compose = true
     }
 
+    // One APK per CPU architecture (much smaller) plus a universal one with all of them.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
