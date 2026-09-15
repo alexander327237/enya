@@ -38,6 +38,7 @@ class TorrentService : Service() {
     private var wifiLock: WifiManager.WifiLock? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var lastNetwork: Network? = null
+    private var lastNotificationText = "Запуск…"
 
     override fun onCreate() {
         super.onCreate()
@@ -64,6 +65,11 @@ class TorrentService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Every startForegroundService() call must be answered with startForeground(), even when
+        // the service is already in the foreground. Otherwise Android raises an ANR
+        // ("did not then call Service.startForeground()") and kills the process ~10 s after
+        // e.g. adding a torrent, which shows up as the app suddenly disappearing.
+        startForegroundCompat(buildNotification(lastNotificationText))
         if (intent?.action == ACTION_STOP) {
             stopSelf()
             return START_NOT_STICKY
@@ -153,6 +159,8 @@ class TorrentService : Service() {
             append(" · ↓ ").append(formatRate(TorrentEngine.totalDownloadRate))
             append(" ↑ ").append(formatRate(TorrentEngine.totalUploadRate))
         }
+        if (text == lastNotificationText) return
+        lastNotificationText = text
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
     }
 

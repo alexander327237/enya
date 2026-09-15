@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
             EnyaTorrentTheme {
                 TorrentScreen(
                     onAdd = { text ->
-                        TorrentService.start(this)
+                        if (!TorrentEngine.isRunning) TorrentService.start(this)
                         TorrentEngine.add(text)
                     },
                     onPickFile = { pickTorrent.launch(arrayOf("application/x-bittorrent", "*/*")) },
