@@ -13,17 +13,20 @@
 
 ## Движки озвучки
 
-1. **Системный TTS Android** — офлайн и бесплатно (Google Speech Services, Samsung TTS, RHVoice и т.п.). Голос выбирается в настройках; язык (ru/en) определяется по тексту.
-2. **OpenAI‑совместимый API** — `POST {baseUrl}/audio/speech`, по умолчанию `https://api.openai.com/v1`, модель `gpt-4o-mini-tts`, 11 голосов и поле «инструкции» для стиля. Аудио кэшируется на диске, следующий фрагмент скачивается заранее.
+1. **Нейроголоса Microsoft Edge** (по умолчанию). Те же голоса, что в «Читать вслух» браузера Edge: Светлана и Дмитрий для русского, Поліна и Остап для украинского, многоязычные Emma, Ava, Andrew, Brian и другие. Бесплатно, без ключа и регистрации, нужен интернет. Голос по умолчанию выбирается по языку текста. Сервис неофициальный, протокол повторяет пакет [edge-tts](https://github.com/rany2/edge-tts); если Microsoft его изменит, обновите версию Chromium и токен в `EdgeTtsClient.kt`.
+2. **Системный TTS Android.** Офлайн и бесплатно (Google Speech Services, Samsung TTS, RHVoice и т.п.). Голос выбирается в настройках; язык определяется по тексту.
+3. **OpenAI‑совместимый API.** `POST {baseUrl}/audio/speech`, по умолчанию `https://api.openai.com/v1`, модель `gpt-4o-mini-tts`, 11 голосов и поле «инструкции» для стиля. Нужен платный API‑ключ либо любой совместимый сервер, например локальный [Kokoro‑FastAPI](https://github.com/remsky/Kokoro-FastAPI) (`http://<ip>:8880/v1`, модель `kokoro`).
 
-   Бесплатная демка OpenAI на [openai.fm](https://www.openai.fm) работает только в браузере, публичного бесплатного API у неё нет. Для приложения нужен API‑ключ с platform.openai.com (платно, ~$0.015 за минуту) либо любой сервер с совместимым эндпоинтом, например бесплатный локальный [Kokoro‑FastAPI](https://github.com/remsky/Kokoro-FastAPI) (`http://<ip>:8880/v1`, модель `kokoro`, голос `af_heart`).
+Для сетевых движков аудио кэшируется на диске (до ~200 МБ, старые фрагменты удаляются), следующие фрагменты скачиваются заранее, скорость и тон меняются на лету без повторной загрузки.
 
 ## Сборка
 
 ```bash
 cd android
-./gradlew :txtvoice:assembleDebug
+./gradlew :txtvoice:assembleDebug :txtvoice:testDebugUnitTest
 # APK: txtvoice/build/outputs/apk/debug/txtvoice-debug.apk
+# Живой тест Edge TTS против сервиса Microsoft:
+EDGE_TTS_LIVE=1 ./gradlew :txtvoice:testDebugUnitTest
 ```
 
 CI (`.github/workflows/android-build.yml`) собирает оба модуля и кладёт готовые APK в `dist/`.

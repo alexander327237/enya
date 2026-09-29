@@ -7,8 +7,11 @@ interface TtsEngine {
     /** Preferred maximum segment length for this backend. */
     val maxSegmentChars: Int
 
-    /** Optional prefetch of the next segment (network engines download audio here). */
-    suspend fun prepare(segment: Segment) {}
+    /** How many upcoming segments the player should ask [prepare] for. */
+    val prefetchAhead: Int get() = 1
+
+    /** Optional prefetch of an upcoming segment (network engines download audio here). */
+    suspend fun prepare(segment: Segment, locale: Locale?) {}
 
     suspend fun speak(segment: Segment, rate: Float, pitch: Float, locale: Locale?, onStart: () -> Unit)
 

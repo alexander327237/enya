@@ -31,6 +31,11 @@
     <string name="sleep_off">Выкл.</string>
     <string name="sleep_minutes">%1$d мин</string>
     <string name="sleep_remaining">Сон через %1$d мин</string>
+    <string name="engine_edge">Нейроголоса Microsoft Edge (бесплатно, онлайн)</string>
+    <string name="engine_label_edge">Edge TTS</string>
+    <string name="settings_edge_section">Голоса Microsoft Edge</string>
+    <string name="settings_edge_note">Те же живые голоса, что в «Читать вслух» браузера Edge. Бесплатно, без ключа и регистрации, нужен интернет. Сервис неофициальный, и Microsoft может его изменить. Если перестанет работать, переключитесь на системный голос.</string>
+    <string name="settings_voice_auto_edge">Авто: Светлана для русского, Поліна для украинского, Emma для остальных</string>
     <string name="engine_system">Системный голос Android (офлайн, бесплатно)</string>
     <string name="engine_openai">OpenAI-совместимый API (gpt-4o-mini-tts)</string>
     <string name="engine_label_system">Системный TTS</string>

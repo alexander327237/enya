@@ -41,6 +41,7 @@ class SettingsViewModel(private val repo: SettingsRepository) : ViewModel() {
     fun setRate(rate: Float) = viewModelScope.launch { repo.setRate(rate) }
     fun setPitch(pitch: Float) = viewModelScope.launch { repo.setPitch(pitch) }
     fun setSystemVoice(name: String) = viewModelScope.launch { repo.setSystemVoice(name) }
+    fun setEdgeVoice(name: String) = viewModelScope.launch { repo.setEdgeVoice(name) }
     fun setFontSize(size: Int) = viewModelScope.launch { repo.setFontSize(size) }
     fun setOpenAiVoice(voice: String) = debounce("voice") { repo.setOpenAiVoice(voice) }
     fun setOpenAiBaseUrl(url: String) = debounce("url") { repo.setOpenAiBaseUrl(url) }

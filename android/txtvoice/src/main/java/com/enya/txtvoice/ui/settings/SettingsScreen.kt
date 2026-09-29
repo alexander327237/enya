@@ -49,7 +49,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.enya.txtvoice.R
 import com.enya.txtvoice.data.EngineType
 import com.enya.txtvoice.data.TtsSettings
-import com.enya.txtvoice.tts.OpenAiTtsEngine
+import com.enya.txtvoice.tts.AudioFileTtsEngine
+import com.enya.txtvoice.tts.EdgeTtsEngine
 import com.enya.txtvoice.tts.Player
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +86,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             SectionTitle(stringResource(R.string.settings_engine))
+            EngineOption(stringResource(R.string.engine_edge), s.engine == EngineType.EDGE) {
+                viewModel.setEngine(EngineType.EDGE)
+            }
             EngineOption(stringResource(R.string.engine_system), s.engine == EngineType.SYSTEM) {
                 viewModel.setEngine(EngineType.SYSTEM)
             }
@@ -112,6 +116,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
             HorizontalDivider(Modifier.padding(vertical = 12.dp))
 
             when (s.engine) {
+                EngineType.EDGE -> EdgeSection(viewModel, s)
                 EngineType.SYSTEM -> SystemSection(viewModel, s)
                 EngineType.OPENAI -> OpenAiSection(viewModel, s)
             }
@@ -165,14 +170,11 @@ private fun SystemSection(viewModel: SettingsViewModel, s: TtsSettings) {
 
 @Composable
 private fun OpenAiSection(viewModel: SettingsViewModel, s: TtsSettings) {
-    val context = LocalContext.current
     var baseUrl by remember { mutableStateOf(s.openAiBaseUrl) }
     var key by remember { mutableStateOf(s.openAiKey) }
     var model by remember { mutableStateOf(s.openAiModel) }
     var voice by remember { mutableStateOf(s.openAiVoice) }
     var instructions by remember { mutableStateOf(s.openAiInstructions) }
-    var cacheSize by remember { mutableStateOf(OpenAiTtsEngine.cacheSizeBytes(context)) }
-
     SectionTitle(stringResource(R.string.settings_openai_section))
     Text(
         stringResource(R.string.settings_openai_note),
@@ -231,9 +233,37 @@ private fun OpenAiSection(viewModel: SettingsViewModel, s: TtsSettings) {
         minLines = 2, modifier = Modifier.fillMaxWidth()
     )
     Spacer(Modifier.height(12.dp))
+    ClearCacheButton()
+}
+
+@Composable
+private fun EdgeSection(viewModel: SettingsViewModel, s: TtsSettings) {
+    SectionTitle(stringResource(R.string.settings_edge_section))
+    Text(
+        stringResource(R.string.settings_edge_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(Modifier.height(12.dp))
+    val autoLabel = stringResource(R.string.settings_voice_auto_edge)
+    val options = listOf("" to autoLabel) + EdgeTtsEngine.VOICES
+    DropdownField(
+        label = stringResource(R.string.settings_voice),
+        value = options.firstOrNull { it.first == s.edgeVoice }?.second ?: s.edgeVoice.ifBlank { autoLabel },
+        options = options.map { it.second },
+        onSelect = { i -> viewModel.setEdgeVoice(options[i].first) }
+    )
+    Spacer(Modifier.height(12.dp))
+    ClearCacheButton()
+}
+
+@Composable
+private fun ClearCacheButton() {
+    val context = LocalContext.current
+    var cacheSize by remember { mutableStateOf(AudioFileTtsEngine.cacheSizeBytes(context)) }
     OutlinedButton(onClick = {
-        OpenAiTtsEngine.clearCache(context)
-        cacheSize = OpenAiTtsEngine.cacheSizeBytes(context)
+        AudioFileTtsEngine.clearCache(context)
+        cacheSize = AudioFileTtsEngine.cacheSizeBytes(context)
     }) {
         Text(stringResource(R.string.settings_clear_cache, formatBytes(cacheSize)))
     }

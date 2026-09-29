@@ -195,7 +195,11 @@ private fun PlayerBar(state: Player.State, rate: Float, onRate: (Float) -> Unit)
             } ?: 0
             val sleepLeft = state.sleepEndsAt?.let { ((it - System.currentTimeMillis()) / 60_000L).toInt().coerceAtLeast(0) }
             val engineLabel = stringResource(
-                if (state.engine == EngineType.SYSTEM) R.string.engine_label_system else R.string.engine_label_openai
+                when (state.engine) {
+                    EngineType.EDGE -> R.string.engine_label_edge
+                    EngineType.SYSTEM -> R.string.engine_label_system
+                    EngineType.OPENAI -> R.string.engine_label_openai
+                }
             )
             val info = buildString {
                 append("${state.index + 1} / $total  •  $percent%  •  $engineLabel")

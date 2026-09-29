@@ -11,14 +11,16 @@ import kotlinx.coroutines.flow.map
 
 private val Context.settingsStore by preferencesDataStore(name = "txtvoice_settings")
 
-enum class EngineType { SYSTEM, OPENAI }
+enum class EngineType { EDGE, SYSTEM, OPENAI }
 
 data class TtsSettings(
-    val engine: EngineType = EngineType.SYSTEM,
+    val engine: EngineType = EngineType.EDGE,
     val rate: Float = 1.0f,
     val pitch: Float = 1.0f,
     /** Name of the system voice, or empty for automatic. */
     val systemVoice: String = "",
+    /** Edge voice short name, or empty for automatic by language. */
+    val edgeVoice: String = "",
     val openAiBaseUrl: String = DEFAULT_BASE_URL,
     val openAiKey: String = "",
     val openAiModel: String = DEFAULT_MODEL,
@@ -28,7 +30,7 @@ data class TtsSettings(
 ) {
     /** Everything that changes the produced audio; used to decide whether the engine must be rebuilt. */
     val engineKey: String
-        get() = listOf(engine.name, systemVoice, openAiBaseUrl, openAiKey, openAiModel, openAiVoice, openAiInstructions)
+        get() = listOf(engine.name, systemVoice, edgeVoice, openAiBaseUrl, openAiKey, openAiModel, openAiVoice, openAiInstructions)
             .joinToString("|")
 
     companion object {
@@ -46,6 +48,7 @@ class SettingsRepository(private val context: Context) {
         val RATE = floatPreferencesKey("rate")
         val PITCH = floatPreferencesKey("pitch")
         val SYSTEM_VOICE = stringPreferencesKey("system_voice")
+        val EDGE_VOICE = stringPreferencesKey("edge_voice")
         val BASE_URL = stringPreferencesKey("openai_base_url")
         val API_KEY = stringPreferencesKey("openai_key")
         val MODEL = stringPreferencesKey("openai_model")
@@ -56,10 +59,11 @@ class SettingsRepository(private val context: Context) {
 
     val settings: Flow<TtsSettings> = context.settingsStore.data.map { p ->
         TtsSettings(
-            engine = p[Keys.ENGINE]?.let { runCatching { EngineType.valueOf(it) }.getOrNull() } ?: EngineType.SYSTEM,
+            engine = p[Keys.ENGINE]?.let { runCatching { EngineType.valueOf(it) }.getOrNull() } ?: EngineType.EDGE,
             rate = p[Keys.RATE] ?: 1.0f,
             pitch = p[Keys.PITCH] ?: 1.0f,
             systemVoice = p[Keys.SYSTEM_VOICE] ?: "",
+            edgeVoice = p[Keys.EDGE_VOICE] ?: "",
             openAiBaseUrl = p[Keys.BASE_URL] ?: TtsSettings.DEFAULT_BASE_URL,
             openAiKey = p[Keys.API_KEY] ?: "",
             openAiModel = p[Keys.MODEL] ?: TtsSettings.DEFAULT_MODEL,
@@ -73,6 +77,7 @@ class SettingsRepository(private val context: Context) {
     suspend fun setRate(rate: Float) = context.settingsStore.edit { it[Keys.RATE] = rate.coerceIn(0.5f, 3.0f) }
     suspend fun setPitch(pitch: Float) = context.settingsStore.edit { it[Keys.PITCH] = pitch.coerceIn(0.5f, 2.0f) }
     suspend fun setSystemVoice(name: String) = context.settingsStore.edit { it[Keys.SYSTEM_VOICE] = name }
+    suspend fun setEdgeVoice(name: String) = context.settingsStore.edit { it[Keys.EDGE_VOICE] = name }
     suspend fun setOpenAiBaseUrl(url: String) = context.settingsStore.edit { it[Keys.BASE_URL] = url.trim().trimEnd('/') }
     suspend fun setOpenAiKey(key: String) = context.settingsStore.edit { it[Keys.API_KEY] = key.trim() }
     suspend fun setOpenAiModel(model: String) = context.settingsStore.edit { it[Keys.MODEL] = model.trim() }

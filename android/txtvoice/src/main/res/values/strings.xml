@@ -31,6 +31,11 @@
     <string name="sleep_off">Off</string>
     <string name="sleep_minutes">%1$d min</string>
     <string name="sleep_remaining">Sleep in %1$d min</string>
+    <string name="engine_edge">Microsoft Edge neural voices (free, online)</string>
+    <string name="engine_label_edge">Edge TTS</string>
+    <string name="settings_edge_section">Microsoft Edge voices</string>
+    <string name="settings_edge_note">The same natural voices as \"Read aloud\" in the Edge browser. Free, no key or sign-up, needs internet. The service is unofficial and Microsoft may change it; if it stops working, switch to the system voice.</string>
+    <string name="settings_voice_auto_edge">Auto: Svetlana for Russian, Polina for Ukrainian, Emma otherwise</string>
     <string name="engine_system">Android system voice (offline, free)</string>
     <string name="engine_openai">OpenAI-compatible API (gpt-4o-mini-tts)</string>
     <string name="engine_label_system">System TTS</string>

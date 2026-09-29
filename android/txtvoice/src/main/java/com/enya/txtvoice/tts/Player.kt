@@ -42,7 +42,7 @@ object Player {
         val status: Status = Status.IDLE,
         val error: String? = null,
         val sleepEndsAt: Long? = null,
-        val engine: EngineType = EngineType.SYSTEM,
+        val engine: EngineType = EngineType.EDGE,
         val rate: Float = 1f,
         val finished: Boolean = false
     ) {
@@ -91,6 +91,7 @@ object Player {
     private fun maxCharsFor(engineType: EngineType) = when (engineType) {
         EngineType.SYSTEM -> SystemTtsEngine.MAX_CHARS
         EngineType.OPENAI -> OpenAiTtsEngine.MAX_CHARS
+        EngineType.EDGE -> EdgeTtsEngine.MAX_CHARS
     }
 
     private suspend fun ensureSettings() {
@@ -102,6 +103,7 @@ object Player {
 
     private fun createEngine(): TtsEngine = when (settings.engine) {
         EngineType.SYSTEM -> SystemTtsEngine(app, settings.systemVoice)
+        EngineType.EDGE -> EdgeTtsEngine(app, settings.edgeVoice)
         EngineType.OPENAI -> OpenAiTtsEngine(
             app,
             settings.openAiBaseUrl.ifBlank { TtsSettings.DEFAULT_BASE_URL },
@@ -185,8 +187,9 @@ object Player {
                 while (isActive) {
                     val st = _state.value
                     val seg = st.segments.getOrNull(st.index) ?: break
-                    st.segments.getOrNull(st.index + 1)?.let { next ->
-                        launch { runCatching { eng.prepare(next) } }
+                    for (ahead in 1..eng.prefetchAhead) {
+                        val next = st.segments.getOrNull(st.index + ahead) ?: break
+                        launch { runCatching { eng.prepare(next, locale) } }
                     }
                     _state.update { it.copy(status = Status.LOADING) }
                     eng.speak(seg, settings.rate, settings.pitch, locale) {
@@ -305,14 +308,17 @@ object Player {
         val probe = if (sample.length > 4000) sample.substring(0, 4000) else sample
         var cyr = 0
         var lat = 0
+        var ukr = 0
         for (ch in probe) {
             when (ch) {
+                'і', 'ї', 'є', 'ґ', 'І', 'Ї', 'Є', 'Ґ' -> { cyr++; ukr++ }
                 in 'Ѐ'..'ӿ' -> cyr++
                 in 'a'..'z', in 'A'..'Z' -> lat++
             }
         }
         return when {
             cyr == 0 && lat == 0 -> null
+            cyr >= lat && ukr * 50 >= cyr -> Locale("uk")
             cyr >= lat -> Locale("ru")
             else -> Locale.ENGLISH
         }
