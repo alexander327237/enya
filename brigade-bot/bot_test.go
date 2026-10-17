@@ -50,6 +50,7 @@ func TestDecide(t *testing.T) {
 		{"упоминание", msg("chat", 500, 10, "@brig_bot посчитай"), true, "", "", "посчитай"},
 		{"свои сообщения", msg("chat", 500, botID, "бот, x"), false, "skip", "", ""},
 		{"помощь", msg("dialog", 77, 10, "/помощь"), false, "", "help", ""},
+		{"/id с именем бота в группе", msg("chat", 600, 11, "/id@brig_bot"), false, "", "id", ""},
 	}
 	for _, c := range cases {
 		d := b.decide(cfg, c.m, botID, "brig_bot")

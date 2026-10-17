@@ -39,6 +39,7 @@ type Bot struct {
 	usageDay string
 	usage    map[int64]int
 	total    int
+	lastHint map[int64]time.Time
 
 	sem chan struct{}
 }
@@ -268,6 +269,9 @@ func (b *Bot) decide(cfg Config, m MaxMessage, botID int64, botUsername string) 
 
 	// /id доступен всем: так человек узнаёт свой ID, чтобы владелец его добавил.
 	cmd := strings.ToLower(firstWord(text))
+	if i := strings.Index(cmd, "@"); i > 0 {
+		cmd = cmd[:i] // «/id@brig_bot» → «/id»
+	}
 	if cmd == "/id" {
 		return Decision{Builtin: "id"}
 	}
@@ -309,6 +313,12 @@ func (b *Bot) handleMessage(ctx context.Context, mc *MaxClient, cfg Config, m Ma
 	case "chat":
 		b.logf("Отклонено: чат %d не разрешён (пишет %s)", chatID, m.Sender.DisplayName())
 		b.addPending(Pending{Kind: "chat", ID: chatID, Name: fmt.Sprintf("Чат %d", chatID), Note: "написал " + m.Sender.DisplayName()})
+		// Подсказка в чат, не чаще раза в 10 минут, чтобы было понятно, почему бот молчит.
+		if b.hintDue(chatID) {
+			if err := mc.Send(ctx, chatID, fmt.Sprintf("Этот чат ещё не разрешён. Владелец бота: откройте панель → «Статус» → «Ожидают разрешения» → «Разрешить» (ID чата %d).", chatID), ""); err != nil {
+				b.logf("Не удалось отправить подсказку в чат %d: %v", chatID, err)
+			}
+		}
 		return
 	case "user":
 		b.logf("Отклонено: %s (id %d) нет в списке разрешённых", m.Sender.DisplayName(), m.Sender.UserID)
@@ -414,6 +424,19 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 		b.history[chatID] = h
 		b.mu.Unlock()
 	}
+}
+
+func (b *Bot) hintDue(chatID int64) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.lastHint == nil {
+		b.lastHint = map[int64]time.Time{}
+	}
+	if time.Since(b.lastHint[chatID]) < 10*time.Minute {
+		return false
+	}
+	b.lastHint[chatID] = time.Now()
+	return true
 }
 
 // rollDay сбрасывает счётчики в полночь. Вызывать под b.mu.
