@@ -241,6 +241,7 @@ function renderPeople(){
 function renderCmds(){
   $('cmds').innerHTML=(cfg.commands||[]).map((c,i)=>`<div class="cmd" data-i="${i}">
     <div class="row"><div><label>Команда (без /)</label><input data-f="name" value="${esc(c.name)}"></div><div><label>Описание для /помощь</label><input data-f="title" value="${esc(c.title)}"></div></div>
+    <div class="row"><div><label>Латиницей для меню Макса</label><input data-f="alias" value="${esc(c.alias)}" placeholder="smeta"></div><div></div></div>
     <label>Что делать нейросети</label><textarea data-f="prompt">${esc(c.prompt)}</textarea>
     <div style="margin-top:6px"><button class="btn sec" data-rmcmd="${i}">Удалить</button></div></div>`).join('');
 }
@@ -256,7 +257,7 @@ function collect(){
   cfg.group_triggers=$('triggers').value.split(',').map(s=>s.trim()).filter(Boolean);
   cfg.daily_limit_per_user=Math.round(num('lim_user',50));cfg.daily_limit_total=Math.round(num('lim_total',300));
   cfg.history_len=Math.round(num('history',10));cfg.max_tokens=Math.round(num('max_tokens',1500));cfg.temperature=num('temperature',0.3);
-  cfg.commands=[...document.querySelectorAll('#cmds .cmd')].map(d=>({name:d.querySelector('[data-f=name]').value.trim().replace(/^\//,''),title:d.querySelector('[data-f=title]').value.trim(),prompt:d.querySelector('[data-f=prompt]').value.trim()})).filter(c=>c.name);
+  cfg.commands=[...document.querySelectorAll('#cmds .cmd')].map(d=>({name:d.querySelector('[data-f=name]').value.trim().replace(/^\//,''),alias:d.querySelector('[data-f=alias]').value.trim().replace(/^\//,''),title:d.querySelector('[data-f=title]').value.trim(),prompt:d.querySelector('[data-f=prompt]').value.trim()})).filter(c=>c.name);
 }
 async function save(quiet){
   collect();
@@ -273,7 +274,7 @@ $('testBtn').onclick=async()=>{
   try{await save(true);const r=await api('/api/test-llm',{prompt:$('testPrompt').value});$('testOut').textContent=`Ответ за ${r.seconds.toFixed(1)} с:\n\n${r.answer}`;$('testOut').className='hint okc'}
   catch(e){$('testOut').textContent='Ошибка: '+e.message;$('testOut').className='hint err'}
 };
-$('addCmd').onclick=()=>{collect();cfg.commands.push({name:'',title:'',prompt:''});renderCmds()};
+$('addCmd').onclick=()=>{collect();cfg.commands.push({name:'',alias:'',title:'',prompt:''});renderCmds()};
 document.addEventListener('click',async e=>{
   const t=e.target;
   if(t.dataset.rmcmd!==undefined){collect();cfg.commands.splice(+t.dataset.rmcmd,1);renderCmds()}

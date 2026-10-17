@@ -133,6 +133,14 @@ func (b *Bot) Start() error {
 	b.botUser = me
 	b.mu.Unlock()
 	b.logf("Бот запущен: %s (@%s)", me.DisplayName(), me.Username)
+	// Меню заполняем, только если оно пустое, чтобы не затереть команды, заданные вручную на business.max.ru.
+	if len(me.Commands) == 0 {
+		if err := mc.SetCommands(ctx, menuCommands(cfg)); err != nil {
+			b.logf("Не удалось записать меню команд в Макс: %v", err)
+		} else {
+			b.logf("Меню команд записано в Макс")
+		}
+	}
 	go b.loop(ctx, mc)
 	return nil
 }
@@ -441,10 +449,38 @@ func helpText(cfg Config) string {
 	}
 	sb.WriteString(".\n\nКоманды:\n")
 	for _, c := range cfg.Commands {
-		sb.WriteString(fmt.Sprintf("/%s — %s\n", c.Name, c.Title))
+		if c.Alias != "" {
+			sb.WriteString(fmt.Sprintf("/%s или /%s — %s\n", c.Alias, c.Name, c.Title))
+		} else {
+			sb.WriteString(fmt.Sprintf("/%s — %s\n", c.Name, c.Title))
+		}
 	}
 	sb.WriteString("/сброс — забыть разговор\n/лимит — сколько запросов осталось\n/id — узнать свой ID")
 	return sb.String()
+}
+
+// menuCommands — список для меню «/» в Максе. Имена латиницей: так их точно примет любой клиент.
+func menuCommands(cfg Config) []BotCommand {
+	out := []BotCommand{
+		{Name: "help", Description: "Что умеет бот"},
+		{Name: "id", Description: "Узнать свой ID и ID чата"},
+	}
+	for _, c := range cfg.Commands {
+		name := c.Alias
+		if name == "" {
+			name = c.Name
+		}
+		d := c.Title
+		if d == "" {
+			d = name
+		}
+		out = append(out, BotCommand{Name: name, Description: d})
+	}
+	out = append(out, BotCommand{Name: "reset", Description: "Забыть разговор"}, BotCommand{Name: "limit", Description: "Сколько запросов осталось"})
+	if len(out) > 32 {
+		out = out[:32]
+	}
+	return out
 }
 
 func matchCommand(cmds []Command, text string) (Command, string, bool) {
@@ -457,7 +493,7 @@ func matchCommand(cmds []Command, text string) (Command, string, bool) {
 		name = name[:i]
 	}
 	for _, c := range cmds {
-		if strings.ToLower(c.Name) == name {
+		if strings.ToLower(c.Name) == name || (c.Alias != "" && strings.ToLower(c.Alias) == name) {
 			return c, strings.TrimSpace(text[len(w):]), true
 		}
 	}

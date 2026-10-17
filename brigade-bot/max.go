@@ -22,6 +22,8 @@ type MaxUser struct {
 	LastName  string `json:"last_name"`
 	Username  string `json:"username"`
 	IsBot     bool   `json:"is_bot"`
+	// Есть только в ответе /me: команды, уже записанные в меню бота.
+	Commands []BotCommand `json:"commands"`
 }
 
 func (u MaxUser) DisplayName() string {
@@ -89,6 +91,15 @@ func (m *MaxClient) Me(ctx context.Context) (MaxUser, error) {
 	var u MaxUser
 	err := m.req(ctx, http.MethodGet, "/me", nil, nil, &u)
 	return u, err
+}
+
+type BotCommand struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+func (m *MaxClient) SetCommands(ctx context.Context, cmds []BotCommand) error {
+	return m.req(ctx, http.MethodPatch, "/me/commands", nil, map[string]any{"commands": cmds}, nil)
 }
 
 func (m *MaxClient) Updates(ctx context.Context, marker *int64, timeout int) ([]MaxUpdate, *int64, error) {
