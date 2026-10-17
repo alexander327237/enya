@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Бот бригады</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1d2329;--muted:#66707a;--line:#e1e5ea;--accent:#1f6feb;--ok:#1a7f37;--bad:#cf222e;--warn:#9a6700;--input:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#111418;--card:#1a1f25;--text:#e6e9ec;--muted:#98a2ad;--line:#2c333b;--accent:#4c8dff;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--input:#12161b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+.pill{padding:3px 10px;border-radius:99px;font-size:13px;font-weight:600}
+.pill.on{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.pill.off{background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--muted)}
+.grow{flex:1}
+nav{display:flex;gap:4px;padding:10px 20px 0;flex-wrap:wrap}
+nav button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--muted);font:inherit;cursor:pointer}
+nav button.act{color:var(--text);border-color:var(--accent);font-weight:600}
+main{max-width:920px;margin:0 auto;padding:16px 20px 60px}
+section{display:none}section.act{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.card h2{font-size:16px;margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--input);color:var(--text);font:inherit}
+textarea{min-height:90px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:640px){.row{grid-template-columns:1fr}}
+button.btn{background:var(--accent);color:#fff;border:0;border-radius:7px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+button.btn.sec{background:transparent;color:var(--text);border:1px solid var(--line)}
+button.btn.danger{background:var(--bad)}
+button.btn:disabled{opacity:.5;cursor:default}
+.hint{font-size:13px;color:var(--muted);margin-top:6px}
+.err{color:var(--bad)}.okc{color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.log{font:12.5px/1.5 ui-monospace,Consolas,monospace;max-height:420px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+.chk{display:flex;gap:8px;align-items:center;margin-top:10px}.chk input{width:auto}
+.cmd{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px}
+.cmd .row{grid-template-columns:160px 1fr}
+.toast{position:fixed;right:16px;bottom:16px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 14px;box-shadow:0 4px 18px rgba(0,0,0,.15);display:none;max-width:90vw}
+.prov{display:none}.prov.act{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>Бот бригады</h1>
+  <span id="state" class="pill off">остановлен</span>
+  <span id="botname" class="hint"></span>
+  <span class="grow"></span>
+  <button class="btn" id="startBtn">Запустить</button>
+  <button class="btn sec" id="stopBtn">Остановить</button>
+</header>
+<nav id="tabs">
+  <button data-t="status" class="act">Статус</button>
+  <button data-t="max">Макс</button>
+  <button data-t="ai">Нейросеть</button>
+  <button data-t="access">Доступ</button>
+  <button data-t="cmds">Команды</button>
+  <button data-t="limits">Лимиты</button>
+</nav>
+<main>
+<section id="t-status" class="act">
+  <div class="card" id="pendCard">
+    <h2>Ожидают разрешения</h2>
+    <div class="hint">Люди и чаты, которые писали боту, но не получили ответ. Разрешите — и бот начнёт им отвечать.</div>
+    <table id="pending"></table>
+  </div>
+  <div class="card">
+    <h2>Журнал <span class="hint" id="today"></span></h2>
+    <div id="lastErr" class="err"></div>
+    <div class="log" id="log"></div>
+  </div>
+</section>
+
+<section id="t-max">
+  <div class="card">
+    <h2>Подключение к Максу</h2>
+    <label>Токен бота</label>
+    <input id="max_token" type="password" autocomplete="off" placeholder="Вставьте токен">
+    <div class="hint">Где взять: business.max.ru → Чат-боты → ваш бот → ⋮ → Настройки → токен. Токен хранится только на этом компьютере.</div>
+    <div class="chk"><input type="checkbox" id="autostart"><span>Запускать бота сразу при открытии программы</span></div>
+  </div>
+  <div class="card">
+    <h2>Как добавить в чат бригады</h2>
+    <ol class="hint" style="padding-left:18px;margin:0">
+      <li>Вставьте токен, нажмите «Сохранить», затем «Запустить».</li>
+      <li>Напишите боту в личку <b>/id</b> — он пришлёт ваш ID. Он же появится на вкладке «Статус» — нажмите «Разрешить».</li>
+      <li>Добавьте бота в чат бригады. Чат появится в «Ожидают разрешения» — разрешите.</li>
+      <li>В чате пишите: <b>бот, сколько нужно фитингов…</b> или ответьте на сообщение бота. Список команд — <b>/помощь</b>.</li>
+    </ol>
+  </div>
+</section>
+
+<section id="t-ai">
+  <div class="card">
+    <h2>Нейросеть</h2>
+    <label>Провайдер</label>
+    <select id="provider">
+      <option value="gigachat">GigaChat (Сбер)</option>
+      <option value="yandex">YandexGPT</option>
+      <option value="openai">Любая OpenAI-совместимая (Ollama, LM Studio, OpenRouter, DeepSeek…)</option>
+    </select>
+
+    <div class="prov" data-p="gigachat">
+      <label>Ключ авторизации (Authorization key)</label>
+      <input id="gc_key" type="password" autocomplete="off">
+      <div class="row">
+        <div><label>Scope</label>
+          <select id="gc_scope"><option>GIGACHAT_API_PERS</option><option>GIGACHAT_API_B2B</option><option>GIGACHAT_API_CORP</option></select></div>
+        <div><label>Модель</label><input id="gc_model" placeholder="GigaChat"></div>
+      </div>
+      <div class="hint">Ключ — в личном кабинете developers.sber.ru → GigaChat API → «Получить ключ». Для физлиц есть бесплатный лимит. Модели: GigaChat, GigaChat-Pro, GigaChat-Max.</div>
+    </div>
+
+    <div class="prov" data-p="yandex">
+      <div class="row">
+        <div><label>API-ключ</label><input id="ya_key" type="password" autocomplete="off"></div>
+        <div><label>ID каталога (folder id)</label><input id="ya_folder"></div>
+      </div>
+      <label>Модель</label><input id="ya_model" placeholder="yandexgpt-lite">
+      <div class="hint">Yandex Cloud → сервисный аккаунт с ролью ai.languageModels.user → API-ключ. Модели: yandexgpt-lite, yandexgpt.</div>
+    </div>
+
+    <div class="prov" data-p="openai">
+      <label>Адрес API</label><input id="oa_url" placeholder="http://localhost:11434/v1">
+      <div class="row">
+        <div><label>API-ключ (для локальных моделей не нужен)</label><input id="oa_key" type="password" autocomplete="off"></div>
+        <div><label>Модель</label><input id="oa_model" placeholder="gemma3:4b"></div>
+      </div>
+      <div class="hint">Ollama на этом ПК: адрес http://localhost:11434/v1, модель — как в «ollama list». LM Studio: http://localhost:1234/v1.</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Проверка</h2>
+    <label>Тестовый вопрос</label>
+    <input id="testPrompt" placeholder="Какой уклон нужен для канализационной трубы 110 мм?">
+    <div style="margin-top:10px"><button class="btn sec" id="testBtn">Сохранить и проверить</button></div>
+    <div class="hint" id="testOut" style="white-space:pre-wrap;margin-top:10px"></div>
+  </div>
+</section>
+
+<section id="t-access">
+  <div class="card">
+    <h2>Кому бот отвечает</h2>
+    <div class="hint">По умолчанию бот отвечает только людям из списка. В общем чате — только если и чат, и человек разрешены. Остальные получат отказ, и их запросы не тратят ваш баланс.</div>
+    <div class="chk"><input type="checkbox" id="open_chats"><span>В разрешённых чатах отвечать всем участникам (не только людям из списка)</span></div>
+  </div>
+  <div class="card">
+    <h2>Разрешённые люди</h2>
+    <table id="users"></table>
+    <div class="row" style="margin-top:8px"><input id="addUserId" placeholder="ID (бот пришлёт по команде /id)"><input id="addUserName" placeholder="Имя"></div>
+    <div style="margin-top:8px"><button class="btn sec" data-add="user">Добавить</button></div>
+  </div>
+  <div class="card">
+    <h2>Разрешённые чаты</h2>
+    <table id="chats"></table>
+    <div class="row" style="margin-top:8px"><input id="addChatId" placeholder="ID чата"><input id="addChatName" placeholder="Название"></div>
+    <div style="margin-top:8px"><button class="btn sec" data-add="chat">Добавить</button></div>
+  </div>
+</section>
+
+<section id="t-cmds">
+  <div class="card">
+    <h2>Кто такой бот</h2>
+    <label>Основная инструкция для нейросети</label>
+    <textarea id="system_prompt" style="min-height:130px"></textarea>
+    <label>Слова, на которые бот откликается в общем чате (через запятую)</label>
+    <input id="triggers" placeholder="бот, /ai">
+    <div class="hint">Ещё бот отвечает, если его упомянуть через @ или ответить на его сообщение. Команды со «/» работают всегда.</div>
+  </div>
+  <div class="card">
+    <h2>Команды-режимы</h2>
+    <div class="hint">Например: <b>/смета замена стояка ХВС, 5 этажей, сталь Ду25</b>. Можно менять, удалять и добавлять свои.</div>
+    <div id="cmds" style="margin-top:10px"></div>
+    <button class="btn sec" id="addCmd">+ Команда</button>
+  </div>
+</section>
+
+<section id="t-limits">
+  <div class="card">
+    <h2>Лимиты и параметры</h2>
+    <div class="row">
+      <div><label>Запросов в день на человека (0 — без лимита)</label><input id="lim_user" type="number" min="0"></div>
+      <div><label>Запросов в день всего</label><input id="lim_total" type="number" min="0"></div>
+      <div><label>Помнить последних сообщений в чате</label><input id="history" type="number" min="0" max="50"></div>
+      <div><label>Длина ответа (токенов)</label><input id="max_tokens" type="number" min="100" max="8000"></div>
+      <div><label>Температура (0 — строго, 1 — творчески)</label><input id="temperature" type="number" step="0.1" min="0" max="1.5"></div>
+    </div>
+  </div>
+</section>
+
+<div class="card" style="position:sticky;bottom:10px;display:flex;gap:10px;align-items:center">
+  <button class="btn" id="saveBtn">Сохранить</button>
+  <span class="hint" id="saveMsg"></span>
+</div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let cfg=null;
+async function api(path,body){
+  const r=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Panel':'1'},body:body===undefined?undefined:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+function toast(t,bad){const e=$('toast');e.textContent=t;e.style.color=bad?'var(--bad)':'var(--text)';e.style.display='block';clearTimeout(e._t);e._t=setTimeout(()=>e.style.display='none',4000)}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('act',x===b));
+  document.querySelectorAll('main section').forEach(s=>s.classList.toggle('act',s.id==='t-'+b.dataset.t));
+});
+function showProv(){document.querySelectorAll('.prov').forEach(p=>p.classList.toggle('act',p.dataset.p===$('provider').value))}
+$('provider').onchange=showProv;
+
+function fill(){
+  $('max_token').value=cfg.max_token;$('autostart').checked=cfg.autostart;
+  $('provider').value=cfg.provider;showProv();
+  $('gc_key').value=cfg.gigachat.auth_key;$('gc_scope').value=cfg.gigachat.scope||'GIGACHAT_API_PERS';$('gc_model').value=cfg.gigachat.model;
+  $('ya_key').value=cfg.yandex.api_key;$('ya_folder').value=cfg.yandex.folder_id;$('ya_model').value=cfg.yandex.model;
+  $('oa_url').value=cfg.openai.base_url;$('oa_key').value=cfg.openai.api_key;$('oa_model').value=cfg.openai.model;
+  $('open_chats').checked=cfg.open_in_allowed_chats;
+  $('system_prompt').value=cfg.system_prompt;$('triggers').value=(cfg.group_triggers||[]).join(', ');
+  $('lim_user').value=cfg.daily_limit_per_user;$('lim_total').value=cfg.daily_limit_total;$('history').value=cfg.history_len;
+  $('max_tokens').value=cfg.max_tokens;$('temperature').value=cfg.temperature;
+  renderPeople();renderCmds();
+}
+function renderPeople(){
+  for(const [kind,el] of [['user','users'],['chat','chats']]){
+    const list=kind==='user'?(cfg.allowed_users||[]):(cfg.allowed_chats||[]);
+    $(el).innerHTML=list.length?list.map(p=>`<tr><td>${esc(p.name)}</td><td class="hint">${p.id}</td><td style="text-align:right"><button class="btn sec" data-del="${kind}" data-id="${p.id}">Убрать</button></td></tr>`).join(''):'<tr><td class="hint">Пока никого</td></tr>';
+  }
+}
+function renderCmds(){
+  $('cmds').innerHTML=(cfg.commands||[]).map((c,i)=>`<div class="cmd" data-i="${i}">
+    <div class="row"><div><label>Команда (без /)</label><input data-f="name" value="${esc(c.name)}"></div><div><label>Описание для /помощь</label><input data-f="title" value="${esc(c.title)}"></div></div>
+    <label>Что делать нейросети</label><textarea data-f="prompt">${esc(c.prompt)}</textarea>
+    <div style="margin-top:6px"><button class="btn sec" data-rmcmd="${i}">Удалить</button></div></div>`).join('');
+}
+function collect(){
+  const num=(id,d)=>{const v=parseFloat($(id).value);return isNaN(v)?d:v};
+  cfg.max_token=$('max_token').value;cfg.autostart=$('autostart').checked;
+  cfg.provider=$('provider').value;
+  cfg.gigachat={auth_key:$('gc_key').value,scope:$('gc_scope').value,model:$('gc_model').value.trim()};
+  cfg.yandex={api_key:$('ya_key').value,folder_id:$('ya_folder').value.trim(),model:$('ya_model').value.trim()};
+  cfg.openai={base_url:$('oa_url').value.trim(),api_key:$('oa_key').value,model:$('oa_model').value.trim()};
+  cfg.open_in_allowed_chats=$('open_chats').checked;
+  cfg.system_prompt=$('system_prompt').value;
+  cfg.group_triggers=$('triggers').value.split(',').map(s=>s.trim()).filter(Boolean);
+  cfg.daily_limit_per_user=Math.round(num('lim_user',50));cfg.daily_limit_total=Math.round(num('lim_total',300));
+  cfg.history_len=Math.round(num('history',10));cfg.max_tokens=Math.round(num('max_tokens',1500));cfg.temperature=num('temperature',0.3);
+  cfg.commands=[...document.querySelectorAll('#cmds .cmd')].map(d=>({name:d.querySelector('[data-f=name]').value.trim().replace(/^\//,''),title:d.querySelector('[data-f=title]').value.trim(),prompt:d.querySelector('[data-f=prompt]').value.trim()})).filter(c=>c.name);
+}
+async function save(quiet){
+  collect();
+  try{await api('/api/config',cfg);$('saveMsg').textContent='Сохранено '+new Date().toLocaleTimeString();$('saveMsg').className='hint okc';await load();if(!quiet)toast('Настройки сохранены')}
+  catch(e){toast('Ошибка: '+e.message,true);throw e}
+}
+async function load(){cfg=await api('/api/config');fill()}
+
+$('saveBtn').onclick=()=>save();
+$('startBtn').onclick=async()=>{try{await save(true);await api('/api/start',{});toast('Бот запущен')}catch(e){toast(e.message,true)}refresh()};
+$('stopBtn').onclick=async()=>{await api('/api/stop',{});toast('Бот остановлен');refresh()};
+$('testBtn').onclick=async()=>{
+  $('testOut').textContent='Жду ответ…';$('testOut').className='hint';
+  try{await save(true);const r=await api('/api/test-llm',{prompt:$('testPrompt').value});$('testOut').textContent=`Ответ за ${r.seconds.toFixed(1)} с:\n\n${r.answer}`;$('testOut').className='hint okc'}
+  catch(e){$('testOut').textContent='Ошибка: '+e.message;$('testOut').className='hint err'}
+};
+$('addCmd').onclick=()=>{collect();cfg.commands.push({name:'',title:'',prompt:''});renderCmds()};
+document.addEventListener('click',async e=>{
+  const t=e.target;
+  if(t.dataset.rmcmd!==undefined){collect();cfg.commands.splice(+t.dataset.rmcmd,1);renderCmds()}
+  if(t.dataset.del){await access(t.dataset.del,+t.dataset.id,'',false)}
+  if(t.dataset.add){const k=t.dataset.add,idEl=k==='user'?'addUserId':'addChatId',nmEl=k==='user'?'addUserName':'addChatName';
+    const id=parseInt($(idEl).value,10);if(!id){toast('Введите числовой ID',true);return}
+    await access(k,id,$(nmEl).value,true);$(idEl).value='';$(nmEl).value=''}
+  if(t.dataset.allow){await access(t.dataset.allow,+t.dataset.id,t.dataset.name,true)}
+  if(t.dataset.dismiss){await api('/api/dismiss',{kind:t.dataset.dismiss,id:+t.dataset.id});refresh()}
+});
+async function access(kind,id,name,allow){
+  try{collect();await api('/api/config',cfg);await api('/api/access',{kind,id,name,allow});await load();refresh();toast(allow?'Доступ выдан':'Доступ убран')}catch(e){toast(e.message,true)}
+}
+async function refresh(){
+  try{
+    const s=await api('/api/status');
+    $('state').textContent=s.running?'работает':'остановлен';$('state').className='pill '+(s.running?'on':'off');
+    $('botname').textContent=s.bot_name?(s.bot_name+(s.bot_username?' (@'+s.bot_username+')':'')):'';
+    $('startBtn').disabled=s.running;$('stopBtn').disabled=!s.running;
+    $('lastErr').textContent=s.last_error||'';
+    $('today').textContent='· запросов к нейросети сегодня: '+s.today_total;
+    const lg=$('log'),atBottom=lg.scrollHeight-lg.scrollTop-lg.clientHeight<30;
+    lg.textContent=(s.logs||[]).map(l=>l.time+'  '+l.text).join('\n')||'Пока пусто';
+    if(atBottom)lg.scrollTop=lg.scrollHeight;
+    const p=s.pending||[];
+    $('pending').innerHTML=p.length?p.map(x=>`<tr><td>${x.kind==='user'?'👤':'💬'} ${esc(x.name)}<div class="hint">${esc(x.note)} · ${esc(x.when)} · id ${x.id}</div></td><td style="text-align:right;white-space:nowrap"><button class="btn" data-allow="${x.kind}" data-id="${x.id}" data-name="${esc(x.name)}">Разрешить</button> <button class="btn sec" data-dismiss="${x.kind}" data-id="${x.id}">Скрыть</button></td></tr>`).join(''):'<tr><td class="hint">Никого</td></tr>';
+  }catch(e){$('state').textContent='нет связи с программой';$('state').className='pill off'}
+}
+load().then(refresh);setInterval(refresh,3000);
+</script>
+</body>
+</html>
