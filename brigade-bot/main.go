@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -22,6 +23,21 @@ func openBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	_ = cmd.Start()
+}
+
+func isOurPanel(addr string) bool {
+	c := &http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Get("http://" + addr + "/api/status")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var st map[string]any
+	if json.NewDecoder(resp.Body).Decode(&st) != nil {
+		return false
+	}
+	_, ok := st["running"]
+	return ok
 }
 
 func fatal(format string, a ...any) {
@@ -49,7 +65,23 @@ func main() {
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
-		fatal("Порт %d занят — возможно, программа уже запущена. Откройте http://%s в браузере.", *port, addr)
+		// Порт занят. Если это уже наша программа — просто открываем её панель.
+		if isOurPanel(addr) {
+			fmt.Println("Программа уже запущена. Открываю панель: http://" + addr)
+			if !*noBrowser {
+				openBrowser("http://" + addr)
+			}
+			time.Sleep(3 * time.Second)
+			return
+		}
+		// Порт занят чем-то другим — берём соседний свободный.
+		for p := *port + 1; p <= *port+20 && err != nil; p++ {
+			addr = fmt.Sprintf("127.0.0.1:%d", p)
+			ln, err = net.Listen("tcp", addr)
+		}
+		if err != nil {
+			fatal("Не удалось найти свободный порт для панели (%d–%d).", *port, *port+20)
+		}
 	}
 	url := "http://" + addr
 	fmt.Println("Бот бригады — панель управления:", url)
