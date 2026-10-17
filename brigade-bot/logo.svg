@@ -1,29 +1,89 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1E5BD8"/>
-      <stop offset="1" stop-color="#0B2E73"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B4F9C"/>
+      <stop offset="1" stop-color="#0A2247"/>
     </linearGradient>
-    <linearGradient id="pipe" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#D6E2FA"/>
+    <linearGradient id="head" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F7F9FC"/>
+      <stop offset="1" stop-color="#C9D4E3"/>
     </linearGradient>
+    <linearGradient id="hat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB547"/>
+      <stop offset="1" stop-color="#F28705"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#E8EDF3"/>
+      <stop offset="1" stop-color="#9AA8BA"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7DF1FF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#7DF1FF" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="jaw">
+      <rect x="-60" y="-80" width="120" height="120" fill="#fff"/>
+      <rect x="-14" y="-90" width="28" height="60" rx="3" fill="#000"/>
+    </mask>
+    <clipPath id="frame"><rect width="512" height="512" rx="112"/></clipPath>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- chat bubble -->
-  <path d="M112 128 h288 a40 40 0 0 1 40 40 v150 a40 40 0 0 1 -40 40 h-150 l-64 58 v-58 h-74 a40 40 0 0 1 -40 -40 v-150 a40 40 0 0 1 40 -40 z" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="6"/>
-  <!-- pipe elbow -->
-  <path d="M150 300 V250 a62 62 0 0 1 62 -62 H330" fill="none" stroke="url(#pipe)" stroke-width="44" stroke-linecap="butt"/>
-  <!-- flanges -->
-  <rect x="122" y="292" width="100" height="24" rx="6" fill="#FFFFFF"/>
-  <rect x="322" y="146" width="24" height="84" rx="6" fill="#FFFFFF"/>
-  <!-- weld seam -->
-  <rect x="262" y="164" width="12" height="48" rx="3" fill="#FF8A1F"/>
-  <!-- spark -->
-  <g transform="translate(372 270)">
-    <path d="M0 -38 L9 -9 L38 0 L9 9 L0 38 L-9 9 L-38 0 L-9 -9 Z" fill="#FFB020"/>
-    <circle r="7" fill="#FFF4D6"/>
+
+  <g clip-path="url(#frame)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+    <circle cx="256" cy="250" r="190" fill="#2C6CD1" opacity="0.35"/>
+
+    <!-- корпус в комбинезоне -->
+    <path d="M96 512 C100 452 150 420 208 414 H304 C362 420 412 452 416 512 Z" fill="#2F7DF0"/>
+    <path d="M196 512 V444 a16 16 0 0 1 16 -16 H300 a16 16 0 0 1 16 16 V512 Z" fill="#2569D6"/>
+    <rect x="228" y="452" width="56" height="34" rx="8" fill="#1E58B8"/>
+    <path d="M256 458 c-9 12 -13 18 -13 23 a13 13 0 0 0 26 0 c0 -5 -4 -11 -13 -23 z" fill="#7DF1FF"/>
+    <path d="M168 424 L204 470" stroke="#2569D6" stroke-width="22" stroke-linecap="round"/>
+    <path d="M344 424 L308 470" stroke="#2569D6" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="206" cy="466" r="8" fill="#FFC35A"/>
+    <circle cx="306" cy="466" r="8" fill="#FFC35A"/>
+
+    <!-- шея -->
+    <rect x="226" y="384" width="60" height="38" rx="8" fill="#8E9CB0"/>
+
+    <!-- уши-болты -->
+    <rect x="114" y="268" width="34" height="62" rx="12" fill="#9AA8BA"/>
+    <rect x="364" y="268" width="34" height="62" rx="12" fill="#9AA8BA"/>
+
+    <!-- голова -->
+    <rect x="138" y="196" width="236" height="200" rx="64" fill="url(#head)"/>
+    <!-- экран-лицо -->
+    <rect x="166" y="236" width="180" height="124" rx="42" fill="#0D1B30"/>
+    <ellipse cx="256" cy="298" rx="88" ry="58" fill="url(#glow)"/>
+    <!-- глаза -->
+    <circle cx="218" cy="286" r="20" fill="#7DF1FF"/>
+    <circle cx="294" cy="286" r="20" fill="#7DF1FF"/>
+    <circle cx="225" cy="279" r="7" fill="#FFFFFF"/>
+    <circle cx="301" cy="279" r="7" fill="#FFFFFF"/>
+    <!-- усы и улыбка -->
+    <path d="M228 338 q28 20 56 0" fill="none" stroke="#7DF1FF" stroke-width="8" stroke-linecap="round"/>
+    <path d="M256 314 c-14 -12 -40 -12 -50 2 c14 -2 30 2 50 10 c20 -8 36 -12 50 -10 c-10 -14 -36 -14 -50 -2 z" fill="#5A3A22"/>
+    <!-- щёки -->
+    <circle cx="186" cy="320" r="9" fill="#FF7A59" opacity="0.6"/>
+    <circle cx="326" cy="320" r="9" fill="#FF7A59" opacity="0.6"/>
+
+    <!-- каска -->
+    <path d="M148 206 C148 120 200 92 256 92 C312 92 364 120 364 206 Z" fill="url(#hat)"/>
+    <rect x="240" y="92" width="32" height="114" rx="10" fill="#FFC36B"/>
+    <rect x="120" y="194" width="272" height="26" rx="13" fill="#F28705"/>
+
+    <!-- рука с ключом -->
+    <path d="M386 450 C420 432 424 384 404 344" fill="none" stroke="#9AA8BA" stroke-width="24" stroke-linecap="round"/>
+    <g transform="translate(430 250) rotate(18)">
+      <rect x="-15" y="-10" width="30" height="128" rx="15" fill="url(#steel)"/>
+      <g mask="url(#jaw)"><circle cx="0" cy="-26" r="40" fill="url(#steel)"/></g>
+      <rect x="-6" y="40" width="12" height="60" rx="6" fill="#7F8EA3" opacity="0.5"/>
+    </g>
+    <circle cx="402" cy="338" r="22" fill="#B7C3D3"/>
+
+    <!-- искры -->
+    <g fill="#FFC35A">
+      <path d="M98 150 l6 16 16 6 -16 6 -6 16 -6 -16 -16 -6 16 -6 z"/>
+      <circle cx="132" cy="112" r="5"/>
+      <circle cx="80" cy="206" r="4"/>
+    </g>
   </g>
-  <circle cx="404" cy="226" r="6" fill="#FFB020"/>
-  <circle cx="338" cy="318" r="5" fill="#FFB020"/>
 </svg>
