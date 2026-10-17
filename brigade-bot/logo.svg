@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1E5BD8"/>
+      <stop offset="1" stop-color="#0B2E73"/>
+    </linearGradient>
+    <linearGradient id="pipe" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#D6E2FA"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- chat bubble -->
+  <path d="M112 128 h288 a40 40 0 0 1 40 40 v150 a40 40 0 0 1 -40 40 h-150 l-64 58 v-58 h-74 a40 40 0 0 1 -40 -40 v-150 a40 40 0 0 1 40 -40 z" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="6"/>
+  <!-- pipe elbow -->
+  <path d="M150 300 V250 a62 62 0 0 1 62 -62 H330" fill="none" stroke="url(#pipe)" stroke-width="44" stroke-linecap="butt"/>
+  <!-- flanges -->
+  <rect x="122" y="292" width="100" height="24" rx="6" fill="#FFFFFF"/>
+  <rect x="322" y="146" width="24" height="84" rx="6" fill="#FFFFFF"/>
+  <!-- weld seam -->
+  <rect x="262" y="164" width="12" height="48" rx="3" fill="#FF8A1F"/>
+  <!-- spark -->
+  <g transform="translate(372 270)">
+    <path d="M0 -38 L9 -9 L38 0 L9 9 L0 38 L-9 9 L-38 0 L-9 -9 Z" fill="#FFB020"/>
+    <circle r="7" fill="#FFF4D6"/>
+  </g>
+  <circle cx="404" cy="226" r="6" fill="#FFB020"/>
+  <circle cx="338" cy="318" r="5" fill="#FFB020"/>
+</svg>

@@ -13,6 +13,9 @@ import (
 //go:embed index.html
 var indexHTML []byte
 
+//go:embed logo.svg
+var logoSVG []byte
+
 const secretMask = "••••••••"
 
 type Server struct {
@@ -74,6 +77,11 @@ func (s *Server) routes() *http.ServeMux {
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
+	}))
+
+	mux.HandleFunc("/logo.svg", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		_, _ = w.Write(logoSVG)
 	}))
 
 	mux.HandleFunc("/api/config", s.guard(func(w http.ResponseWriter, r *http.Request) {
