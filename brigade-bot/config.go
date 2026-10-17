@@ -67,10 +67,10 @@ type Config struct {
 func defaultConfig() Config {
 	return Config{
 		AutoStart: true,
-		Provider:  "gigachat",
+		Provider:  "openai",
 		GigaChat:  GigaChatCfg{Scope: "GIGACHAT_API_PERS", Model: "GigaChat"},
 		Yandex:    YandexCfg{Model: "yandexgpt-lite"},
-		OpenAI:    OpenAICfg{BaseURL: "http://localhost:11434/v1", Model: "gemma3:4b"},
+		OpenAI:    OpenAICfg{},
 		SystemPrompt: "Ты — помощник бригады сварщиков-сантехников (отопление, водоснабжение, канализация, сварка трубопроводов), " +
 			"работающей в Москве и Московской области как ИП. Отвечай по-русски, коротко и по делу, без воды. " +
 			"Если не уверен в цифрах (цены, нормы, СП, ГОСТ) — так и скажи и предложи, где проверить. " +
