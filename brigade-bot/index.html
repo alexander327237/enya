@@ -106,6 +106,7 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
     </select>
 
     <div class="prov" data-p="gigachat">
+      <h2 style="margin:16px 0 0;font-size:15px">GigaChat</h2>
       <label>Ключ авторизации (Authorization key)</label>
       <input id="gc_key" type="password" autocomplete="off">
       <div class="row">
@@ -117,6 +118,7 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
     </div>
 
     <div class="prov" data-p="yandex">
+      <h2 style="margin:16px 0 0;font-size:15px">YandexGPT</h2>
       <div class="row">
         <div><label>API-ключ</label><input id="ya_key" type="password" autocomplete="off"></div>
         <div><label>ID каталога (folder id)</label><input id="ya_folder"></div>
@@ -126,6 +128,7 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
     </div>
 
     <div class="prov" data-p="openai">
+      <h2 style="margin:16px 0 0;font-size:15px">Своя нейросеть</h2>
       <label>Адрес API</label><input id="oa_url" placeholder="https://api.deepseek.com/v1">
       <div class="row">
         <div><label>API-ключ (для локальных моделей не нужен)</label><input id="oa_key" type="password" autocomplete="off"></div>
@@ -137,15 +140,25 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
   </div>
   <div class="card">
     <h2>Запасная нейросеть</h2>
-    <div class="chk"><input type="checkbox" id="fb_on"><span>Если основная не ответила — отвечать через запасную (обычно локальная Ollama на этом компьютере)</span></div>
-    <label>Адрес API</label><input id="fb_url" placeholder="http://localhost:11434/v1">
+    <div class="chk"><input type="checkbox" id="fb_on"><span>Если основная не ответила — отвечать через запасную</span></div>
+    <label>Запасная нейросеть</label>
+    <select id="fb_provider">
+      <option value="gigachat">GigaChat (Сбер) — быстро, есть бесплатный лимит</option>
+      <option value="yandex">YandexGPT — быстро</option>
+      <option value="openai">Своя или локальная (Ollama на этом компьютере) — медленно на слабом ПК</option>
+    </select>
+    <div class="hint" id="fb_cloud_hint">Ключ для неё заполните в блоке выше — он появляется автоматически.</div>
+    <div id="fb_own">
+      <label>Адрес API</label><input id="fb_url" placeholder="http://localhost:11434/v1">
+      <div class="row">
+        <div><label>Модель</label><input id="fb_model" placeholder="qwen2.5:3b"></div>
+        <div><label>API-ключ (для Ollama не нужен)</label><input id="fb_key" type="password" autocomplete="off"></div>
+      </div>
+    </div>
     <div class="row">
-      <div><label>Модель</label><input id="fb_model" placeholder="qwen2.5:3b"></div>
-      <div><label>API-ключ (для Ollama не нужен)</label><input id="fb_key" type="password" autocomplete="off"></div>
       <div><label>Ждать основную, секунд</label><input id="fb_wait" type="number" min="10" max="600"></div>
       <div><label>Длина ответа запасной (токенов)</label><input id="fb_tokens" type="number" min="50" max="4000"></div>
     </div>
-    <div class="hint">На слабом компьютере локальная модель отвечает минутами — держите длину ответа небольшой.</div>
     <div style="margin-top:10px"><button class="btn sec" id="fbTestBtn">Сохранить и проверить запасную</button></div>
     <div class="hint" id="fbTestOut" style="white-space:pre-wrap;margin-top:10px"></div>
   </div>
@@ -231,18 +244,24 @@ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('act',x===b));
   document.querySelectorAll('main section').forEach(s=>s.classList.toggle('act',s.id==='t-'+b.dataset.t));
 });
-function showProv(){document.querySelectorAll('.prov').forEach(p=>p.classList.toggle('act',p.dataset.p===$('provider').value))}
-$('provider').onchange=showProv;
+function showProv(){
+  const fb=$('fb_on').checked?$('fb_provider').value:'';
+  document.querySelectorAll('.prov').forEach(p=>p.classList.toggle('act',p.dataset.p===$('provider').value||(p.dataset.p===fb&&fb!=='openai')));
+  $('fb_own').style.display=$('fb_provider').value==='openai'?'block':'none';
+  $('fb_cloud_hint').style.display=$('fb_provider').value==='openai'?'none':'block';
+}
+$('provider').onchange=showProv;$('fb_provider').onchange=showProv;$('fb_on').onchange=showProv;
 
 function fill(){
   $('max_token').value=cfg.max_token;$('autostart').checked=cfg.autostart;
-  $('provider').value=cfg.provider;showProv();
+  $('provider').value=cfg.provider;
   $('gc_key').value=cfg.gigachat.auth_key;$('gc_scope').value=cfg.gigachat.scope||'GIGACHAT_API_PERS';$('gc_model').value=cfg.gigachat.model;
   $('ya_key').value=cfg.yandex.api_key;$('ya_folder').value=cfg.yandex.folder_id;$('ya_model').value=cfg.yandex.model;
   $('oa_url').value=cfg.openai.base_url;$('oa_key').value=cfg.openai.api_key;$('oa_model').value=cfg.openai.model;
   $('open_chats').checked=cfg.open_in_allowed_chats;
   $('fb_on').checked=cfg.fallback_enabled;$('fb_url').value=cfg.fallback.base_url;$('fb_model').value=cfg.fallback.model;$('fb_key').value=cfg.fallback.api_key;
   $('fb_wait').value=cfg.primary_timeout_sec;$('fb_tokens').value=cfg.fallback_max_tokens;
+  $('fb_provider').value=cfg.fallback_provider||'gigachat';showProv();
   $('system_prompt').value=cfg.system_prompt;$('triggers').value=(cfg.group_triggers||[]).join(', ');
   $('lim_user').value=cfg.daily_limit_per_user;$('lim_total').value=cfg.daily_limit_total;$('history').value=cfg.history_len;
   $('max_tokens').value=cfg.max_tokens;$('temperature').value=cfg.temperature;
@@ -270,7 +289,7 @@ function collect(){
   cfg.openai={base_url:$('oa_url').value.trim(),api_key:$('oa_key').value,model:$('oa_model').value.trim()};
   cfg.open_in_allowed_chats=$('open_chats').checked;
   cfg.fallback_enabled=$('fb_on').checked;cfg.fallback={base_url:$('fb_url').value.trim(),api_key:$('fb_key').value,model:$('fb_model').value.trim()};
-  cfg.primary_timeout_sec=Math.round(num('fb_wait',60));cfg.fallback_max_tokens=Math.round(num('fb_tokens',400));
+  cfg.fallback_provider=$('fb_provider').value;cfg.primary_timeout_sec=Math.round(num('fb_wait',60));cfg.fallback_max_tokens=Math.round(num('fb_tokens',400));
   cfg.system_prompt=$('system_prompt').value;
   cfg.group_triggers=$('triggers').value.split(',').map(s=>s.trim()).filter(Boolean);
   cfg.daily_limit_per_user=Math.round(num('lim_user',50));cfg.daily_limit_total=Math.round(num('lim_total',300));
@@ -293,7 +312,7 @@ $('testBtn').onclick=async()=>{
   catch(e){$('testOut').textContent='Ошибка: '+e.message;$('testOut').className='hint err'}
 };
 $('fbTestBtn').onclick=async()=>{
-  $('fbTestOut').textContent='Жду ответ запасной модели — на слабом компьютере это может занять несколько минут…';$('fbTestOut').className='hint';
+  $('fbTestOut').textContent='Жду ответ запасной нейросети…';$('fbTestOut').className='hint';
   try{await save(true);const r=await api('/api/test-llm',{prompt:$('testPrompt').value,target:'fallback'});$('fbTestOut').textContent=`Ответ за ${r.seconds.toFixed(1)} с:\n\n${r.answer}`;$('fbTestOut').className='hint okc'}
   catch(e){$('fbTestOut').textContent='Ошибка: '+e.message;$('fbTestOut').className='hint err'}
 };

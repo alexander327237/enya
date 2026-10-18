@@ -145,15 +145,15 @@ func (s *Server) routes() *http.ServeMux {
 			in.Prompt = "Ответь одним предложением: какой уклон нужен для канализационной трубы 110 мм?"
 		}
 		cfg := s.store.Get()
-		var llm LLM = &openAICompat{cfg: cfg.Fallback, hc: s.bot.def}
-		maxTok := cfg.FallbackMaxTokens
-		if in.Target != "fallback" {
-			var err error
-			if llm, err = newLLM(cfg, s.bot.ru, s.bot.def); err != nil {
-				writeErr(w, err)
-				return
-			}
-			maxTok = cfg.MaxTokens
+		llm, err := newLLM(cfg, s.bot.ru, s.bot.def)
+		maxTok := cfg.MaxTokens
+		if in.Target == "fallback" {
+			llm, err = newFallbackLLM(cfg, s.bot.ru, s.bot.def)
+			maxTok = cfg.FallbackMaxTokens
+		}
+		if err != nil {
+			writeErr(w, err)
+			return
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
 		defer cancel()

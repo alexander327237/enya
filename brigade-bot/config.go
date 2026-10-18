@@ -49,6 +49,7 @@ type Config struct {
 
 	// Запасная нейросеть (обычно локальная Ollama) — если основная не ответила.
 	FallbackEnabled   bool      `json:"fallback_enabled"`
+	FallbackProvider  string    `json:"fallback_provider"` // gigachat | yandex | openai (своя или локальная)
 	Fallback          OpenAICfg `json:"fallback"`
 	FallbackMaxTokens int       `json:"fallback_max_tokens"`
 	PrimaryTimeoutSec int       `json:"primary_timeout_sec"`
@@ -79,8 +80,9 @@ func defaultConfig() Config {
 		Yandex:    YandexCfg{Model: "yandexgpt-lite"},
 		OpenAI:    OpenAICfg{},
 
+		FallbackProvider:  "gigachat",
 		Fallback:          OpenAICfg{BaseURL: "http://localhost:11434/v1", Model: "qwen2.5:3b"},
-		FallbackMaxTokens: 400,
+		FallbackMaxTokens: 800,
 		PrimaryTimeoutSec: 60,
 		SystemPrompt: "Ты — помощник бригады сварщиков-сантехников (отопление, водоснабжение, канализация, сварка трубопроводов), " +
 			"работающей в Москве и Московской области как ИП. Отвечай по-русски, коротко и по делу, без воды. " +

@@ -401,17 +401,25 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 			reply("Не получилось получить ответ от нейросети. Попробуйте позже.")
 			return
 		}
-		reply("Основная нейросеть сейчас не отвечает — отвечает запасная на нашем компьютере. Это займёт несколько минут, ответ будет короче.")
-		// Маленькой локальной модели даём только последний обмен репликами: так быстрее.
-		short := []ChatMsg{{Role: "system", Content: sys}}
-		if len(hist) >= 2 {
-			short = append(short, hist[len(hist)-2:]...)
+		fb, ferr := newFallbackLLM(cfg, b.ru, b.def)
+		if ferr != nil {
+			b.logf("Запасная нейросеть не настроена: %v", ferr)
+			reply("Не получилось получить ответ от нейросети. Попробуйте позже.")
+			return
 		}
-		short = append(short, ChatMsg{Role: "user", Content: user})
+		fmsgs := msgs
+		if cfg.FallbackProvider == "" || cfg.FallbackProvider == "openai" {
+			reply("Основная нейросеть сейчас не отвечает — отвечает запасная на нашем компьютере, это может занять пару минут.")
+			// Маленькой локальной модели даём только последний обмен репликами: так быстрее.
+			fmsgs = []ChatMsg{{Role: "system", Content: sys}}
+			if len(hist) >= 2 {
+				fmsgs = append(fmsgs, hist[len(hist)-2:]...)
+			}
+			fmsgs = append(fmsgs, ChatMsg{Role: "user", Content: user})
+		}
 		fctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
 		defer cancel()
-		fb := &openAICompat{cfg: cfg.Fallback, hc: b.def}
-		out, err = fb.Chat(fctx, short, cfg.Temperature, cfg.FallbackMaxTokens)
+		out, err = fb.Chat(fctx, fmsgs, cfg.Temperature, cfg.FallbackMaxTokens)
 		if err != nil {
 			b.logf("Ошибка запасной нейросети: %v", err)
 			reply("Запасная нейросеть тоже не ответила. Попробуйте позже.")

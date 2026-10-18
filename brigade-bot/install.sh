@@ -66,7 +66,7 @@ if [ "$1" = "ollama" ]; then
 		if command -v curl >/dev/null 2>&1; then curl -fsSL https://ollama.com/install.sh | sh; else wget -qO- https://ollama.com/install.sh | sh; fi
 	fi
 	ollama pull "$MODEL"
-	echo "== Запасная нейросеть: в панели → «Нейросеть» → «Запасная» включите галочку, модель: $MODEL"
+	echo "== Запасная: в панели → «Нейросеть» → «Запасная нейросеть» выберите «Своя или локальная», модель: $MODEL"
 fi
 
 echo

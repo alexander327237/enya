@@ -46,6 +46,19 @@ func newLLM(c Config, ru, def *http.Client) (LLM, error) {
 	return nil, fmt.Errorf("неизвестный провайдер %q", c.Provider)
 }
 
+// newFallbackLLM — запасная нейросеть. GigaChat и YandexGPT берут ключи из основных настроек,
+// «своя» — из отдельного блока (по умолчанию локальная Ollama).
+func newFallbackLLM(c Config, ru, def *http.Client) (LLM, error) {
+	if c.FallbackProvider == "" || c.FallbackProvider == "openai" {
+		if c.Fallback.BaseURL == "" || c.Fallback.Model == "" {
+			return nil, errors.New("у запасной нейросети не указан адрес или модель")
+		}
+		return &openAICompat{cfg: c.Fallback, hc: def}, nil
+	}
+	c.Provider = c.FallbackProvider
+	return newLLM(c, ru, def)
+}
+
 func postJSON(ctx context.Context, hc *http.Client, u string, headers map[string]string, body any, out any) error {
 	b, err := json.Marshal(body)
 	if err != nil {

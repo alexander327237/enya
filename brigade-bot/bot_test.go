@@ -299,6 +299,7 @@ func TestFallback(t *testing.T) {
 	cfg.Provider = "openai"
 	cfg.OpenAI = OpenAICfg{BaseURL: bad.URL, Model: "x"}
 	cfg.FallbackEnabled = true
+	cfg.FallbackProvider = "openai"
 	cfg.Fallback = OpenAICfg{BaseURL: good.URL, Model: "y"}
 	b := NewBot(&Store{cfg: cfg})
 	mc := &MaxClient{token: "T", hc: http.DefaultClient}
@@ -309,5 +310,25 @@ func TestFallback(t *testing.T) {
 	defer mu.Unlock()
 	if len(texts) != 2 || !strings.Contains(texts[0], "запасная") || texts[1] != "Ответ запасной." {
 		t.Fatalf("сообщения: %q", texts)
+	}
+}
+
+func TestFallbackProviderChoice(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.GigaChat.AuthKey = "k"
+	if l, err := newFallbackLLM(cfg, nil, nil); err != nil {
+		t.Fatal(err)
+	} else if _, ok := l.(*gigaChat); !ok {
+		t.Fatalf("по умолчанию запасная — GigaChat, получили %T", l)
+	}
+	cfg.FallbackProvider = "openai"
+	if l, err := newFallbackLLM(cfg, nil, nil); err != nil {
+		t.Fatal(err)
+	} else if _, ok := l.(*openAICompat); !ok {
+		t.Fatalf("ожидалась своя/локальная, получили %T", l)
+	}
+	cfg.FallbackProvider = "yandex"
+	if _, err := newFallbackLLM(cfg, nil, nil); err == nil {
+		t.Fatal("YandexGPT без ключа не должен настраиваться")
 	}
 }
