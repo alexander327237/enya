@@ -369,11 +369,6 @@ func (b *Bot) handleMessage(ctx context.Context, mc *MaxClient, cfg Config, m Ma
 
 func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessage, text string, reply func(string)) {
 	chatID := m.Recipient.ChatID
-	llm, err := newLLM(cfg, b.ru, b.def)
-	if err != nil {
-		reply("Нейросеть не настроена: " + err.Error())
-		return
-	}
 	sys := cfg.SystemPrompt
 	user := text
 	if c, rest, ok := matchCommand(cfg.Commands, text); ok {
@@ -398,14 +393,31 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 	msgs = append(msgs, ChatMsg{Role: "user", Content: user})
 
 	b.logf("Запрос от %s в чате %d: %s", m.Sender.DisplayName(), chatID, shorten(text, 80))
-	cctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
 	start := time.Now()
-	out, err := llm.Chat(cctx, msgs, cfg.Temperature, cfg.MaxTokens)
+	out, err := b.askPrimary(ctx, cfg, msgs)
 	if err != nil {
-		b.logf("Ошибка нейросети: %v", err)
-		reply("Не получилось получить ответ от нейросети. Попробуйте позже.")
-		return
+		b.logf("Ошибка основной нейросети: %v", err)
+		if !cfg.FallbackEnabled {
+			reply("Не получилось получить ответ от нейросети. Попробуйте позже.")
+			return
+		}
+		reply("Основная нейросеть сейчас не отвечает — отвечает запасная на нашем компьютере. Это займёт несколько минут, ответ будет короче.")
+		// Маленькой локальной модели даём только последний обмен репликами: так быстрее.
+		short := []ChatMsg{{Role: "system", Content: sys}}
+		if len(hist) >= 2 {
+			short = append(short, hist[len(hist)-2:]...)
+		}
+		short = append(short, ChatMsg{Role: "user", Content: user})
+		fctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+		defer cancel()
+		fb := &openAICompat{cfg: cfg.Fallback, hc: b.def}
+		out, err = fb.Chat(fctx, short, cfg.Temperature, cfg.FallbackMaxTokens)
+		if err != nil {
+			b.logf("Ошибка запасной нейросети: %v", err)
+			reply("Запасная нейросеть тоже не ответила. Попробуйте позже.")
+			return
+		}
+		b.logf("Ответила запасная нейросеть")
 	}
 	out = strings.TrimSpace(out)
 	if out == "" {
@@ -424,6 +436,20 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 		b.history[chatID] = h
 		b.mu.Unlock()
 	}
+}
+
+func (b *Bot) askPrimary(ctx context.Context, cfg Config, msgs []ChatMsg) (string, error) {
+	llm, err := newLLM(cfg, b.ru, b.def)
+	if err != nil {
+		return "", err
+	}
+	timeout := 3 * time.Minute
+	if cfg.FallbackEnabled && cfg.PrimaryTimeoutSec > 0 {
+		timeout = time.Duration(cfg.PrimaryTimeoutSec) * time.Second
+	}
+	cctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return llm.Chat(cctx, msgs, cfg.Temperature, cfg.MaxTokens)
 }
 
 func (b *Bot) hintDue(chatID int64) bool {

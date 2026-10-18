@@ -92,6 +92,7 @@ func (s *Server) routes() *http.ServeMux {
 			c.GigaChat.AuthKey = mask(c.GigaChat.AuthKey)
 			c.Yandex.APIKey = mask(c.Yandex.APIKey)
 			c.OpenAI.APIKey = mask(c.OpenAI.APIKey)
+			c.Fallback.APIKey = mask(c.Fallback.APIKey)
 			writeJSON(w, c)
 		case http.MethodPost:
 			var in Config
@@ -104,6 +105,7 @@ func (s *Server) routes() *http.ServeMux {
 				in.GigaChat.AuthKey = keep(in.GigaChat.AuthKey, c.GigaChat.AuthKey)
 				in.Yandex.APIKey = keep(in.Yandex.APIKey, c.Yandex.APIKey)
 				in.OpenAI.APIKey = keep(in.OpenAI.APIKey, c.OpenAI.APIKey)
+				in.Fallback.APIKey = keep(in.Fallback.APIKey, c.Fallback.APIKey)
 				*c = in
 			})
 			if err != nil {
@@ -136,21 +138,27 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/api/test-llm", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Prompt string `json:"prompt"`
+			Target string `json:"target"` // "" — основная, "fallback" — запасная
 		}
 		_ = json.NewDecoder(r.Body).Decode(&in)
 		if strings.TrimSpace(in.Prompt) == "" {
 			in.Prompt = "Ответь одним предложением: какой уклон нужен для канализационной трубы 110 мм?"
 		}
 		cfg := s.store.Get()
-		llm, err := newLLM(cfg, s.bot.ru, s.bot.def)
-		if err != nil {
-			writeErr(w, err)
-			return
+		var llm LLM = &openAICompat{cfg: cfg.Fallback, hc: s.bot.def}
+		maxTok := cfg.FallbackMaxTokens
+		if in.Target != "fallback" {
+			var err error
+			if llm, err = newLLM(cfg, s.bot.ru, s.bot.def); err != nil {
+				writeErr(w, err)
+				return
+			}
+			maxTok = cfg.MaxTokens
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Minute)
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
 		defer cancel()
 		start := time.Now()
-		out, err := llm.Chat(ctx, []ChatMsg{{Role: "system", Content: cfg.SystemPrompt}, {Role: "user", Content: in.Prompt}}, cfg.Temperature, cfg.MaxTokens)
+		out, err := llm.Chat(ctx, []ChatMsg{{Role: "system", Content: cfg.SystemPrompt}, {Role: "user", Content: in.Prompt}}, cfg.Temperature, maxTok)
 		if err != nil {
 			writeErr(w, err)
 			return

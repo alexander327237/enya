@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -265,5 +266,48 @@ func TestPanelGuard(t *testing.T) {
 	}
 	if store.Get().MaxToken != "SECRET" {
 		t.Fatal("token overwritten by mask")
+	}
+}
+
+// Основная нейросеть падает — бот предупреждает и отвечает через запасную.
+func TestFallback(t *testing.T) {
+	var mu sync.Mutex
+	var texts []string
+	maxSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/messages" {
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			mu.Lock()
+			texts = append(texts, body["text"].(string))
+			mu.Unlock()
+		}
+		_, _ = io.WriteString(w, `{}`)
+	}))
+	defer maxSrv.Close()
+	bad := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(503) }))
+	defer bad.Close()
+	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"Ответ запасной."}}]}`)
+	}))
+	defer good.Close()
+
+	old := maxAPIBase
+	maxAPIBase = maxSrv.URL
+	defer func() { maxAPIBase = old }()
+
+	cfg := defaultConfig()
+	cfg.Provider = "openai"
+	cfg.OpenAI = OpenAICfg{BaseURL: bad.URL, Model: "x"}
+	cfg.FallbackEnabled = true
+	cfg.Fallback = OpenAICfg{BaseURL: good.URL, Model: "y"}
+	b := NewBot(&Store{cfg: cfg})
+	mc := &MaxClient{token: "T", hc: http.DefaultClient}
+	m := msg("dialog", 77, 10, "вопрос")
+	b.answer(context.Background(), mc, cfg, m, "вопрос", func(s string) { _ = mc.Send(context.Background(), 77, s, "") })
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(texts) != 2 || !strings.Contains(texts[0], "запасная") || texts[1] != "Ответ запасной." {
+		t.Fatalf("сообщения: %q", texts)
 	}
 }

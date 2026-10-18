@@ -136,6 +136,20 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
     </div>
   </div>
   <div class="card">
+    <h2>Запасная нейросеть</h2>
+    <div class="chk"><input type="checkbox" id="fb_on"><span>Если основная не ответила — отвечать через запасную (обычно локальная Ollama на этом компьютере)</span></div>
+    <label>Адрес API</label><input id="fb_url" placeholder="http://localhost:11434/v1">
+    <div class="row">
+      <div><label>Модель</label><input id="fb_model" placeholder="qwen2.5:3b"></div>
+      <div><label>API-ключ (для Ollama не нужен)</label><input id="fb_key" type="password" autocomplete="off"></div>
+      <div><label>Ждать основную, секунд</label><input id="fb_wait" type="number" min="10" max="600"></div>
+      <div><label>Длина ответа запасной (токенов)</label><input id="fb_tokens" type="number" min="50" max="4000"></div>
+    </div>
+    <div class="hint">На слабом компьютере локальная модель отвечает минутами — держите длину ответа небольшой.</div>
+    <div style="margin-top:10px"><button class="btn sec" id="fbTestBtn">Сохранить и проверить запасную</button></div>
+    <div class="hint" id="fbTestOut" style="white-space:pre-wrap;margin-top:10px"></div>
+  </div>
+  <div class="card">
     <h2>Проверка</h2>
     <label>Тестовый вопрос</label>
     <input id="testPrompt" placeholder="Какой уклон нужен для канализационной трубы 110 мм?">
@@ -227,6 +241,8 @@ function fill(){
   $('ya_key').value=cfg.yandex.api_key;$('ya_folder').value=cfg.yandex.folder_id;$('ya_model').value=cfg.yandex.model;
   $('oa_url').value=cfg.openai.base_url;$('oa_key').value=cfg.openai.api_key;$('oa_model').value=cfg.openai.model;
   $('open_chats').checked=cfg.open_in_allowed_chats;
+  $('fb_on').checked=cfg.fallback_enabled;$('fb_url').value=cfg.fallback.base_url;$('fb_model').value=cfg.fallback.model;$('fb_key').value=cfg.fallback.api_key;
+  $('fb_wait').value=cfg.primary_timeout_sec;$('fb_tokens').value=cfg.fallback_max_tokens;
   $('system_prompt').value=cfg.system_prompt;$('triggers').value=(cfg.group_triggers||[]).join(', ');
   $('lim_user').value=cfg.daily_limit_per_user;$('lim_total').value=cfg.daily_limit_total;$('history').value=cfg.history_len;
   $('max_tokens').value=cfg.max_tokens;$('temperature').value=cfg.temperature;
@@ -253,6 +269,8 @@ function collect(){
   cfg.yandex={api_key:$('ya_key').value,folder_id:$('ya_folder').value.trim(),model:$('ya_model').value.trim()};
   cfg.openai={base_url:$('oa_url').value.trim(),api_key:$('oa_key').value,model:$('oa_model').value.trim()};
   cfg.open_in_allowed_chats=$('open_chats').checked;
+  cfg.fallback_enabled=$('fb_on').checked;cfg.fallback={base_url:$('fb_url').value.trim(),api_key:$('fb_key').value,model:$('fb_model').value.trim()};
+  cfg.primary_timeout_sec=Math.round(num('fb_wait',60));cfg.fallback_max_tokens=Math.round(num('fb_tokens',400));
   cfg.system_prompt=$('system_prompt').value;
   cfg.group_triggers=$('triggers').value.split(',').map(s=>s.trim()).filter(Boolean);
   cfg.daily_limit_per_user=Math.round(num('lim_user',50));cfg.daily_limit_total=Math.round(num('lim_total',300));
@@ -273,6 +291,11 @@ $('testBtn').onclick=async()=>{
   $('testOut').textContent='Жду ответ…';$('testOut').className='hint';
   try{await save(true);const r=await api('/api/test-llm',{prompt:$('testPrompt').value});$('testOut').textContent=`Ответ за ${r.seconds.toFixed(1)} с:\n\n${r.answer}`;$('testOut').className='hint okc'}
   catch(e){$('testOut').textContent='Ошибка: '+e.message;$('testOut').className='hint err'}
+};
+$('fbTestBtn').onclick=async()=>{
+  $('fbTestOut').textContent='Жду ответ запасной модели — на слабом компьютере это может занять несколько минут…';$('fbTestOut').className='hint';
+  try{await save(true);const r=await api('/api/test-llm',{prompt:$('testPrompt').value,target:'fallback'});$('fbTestOut').textContent=`Ответ за ${r.seconds.toFixed(1)} с:\n\n${r.answer}`;$('fbTestOut').className='hint okc'}
+  catch(e){$('fbTestOut').textContent='Ошибка: '+e.message;$('fbTestOut').className='hint err'}
 };
 $('addCmd').onclick=()=>{collect();cfg.commands.push({name:'',alias:'',title:'',prompt:''});renderCmds()};
 document.addEventListener('click',async e=>{

@@ -47,6 +47,12 @@ type Config struct {
 	Yandex   YandexCfg   `json:"yandex"`
 	OpenAI   OpenAICfg   `json:"openai"`
 
+	// Запасная нейросеть (обычно локальная Ollama) — если основная не ответила.
+	FallbackEnabled   bool      `json:"fallback_enabled"`
+	Fallback          OpenAICfg `json:"fallback"`
+	FallbackMaxTokens int       `json:"fallback_max_tokens"`
+	PrimaryTimeoutSec int       `json:"primary_timeout_sec"`
+
 	SystemPrompt string    `json:"system_prompt"`
 	Commands     []Command `json:"commands"`
 	Temperature  float64   `json:"temperature"`
@@ -72,6 +78,10 @@ func defaultConfig() Config {
 		GigaChat:  GigaChatCfg{Scope: "GIGACHAT_API_PERS", Model: "GigaChat"},
 		Yandex:    YandexCfg{Model: "yandexgpt-lite"},
 		OpenAI:    OpenAICfg{},
+
+		Fallback:          OpenAICfg{BaseURL: "http://localhost:11434/v1", Model: "qwen2.5:3b"},
+		FallbackMaxTokens: 400,
+		PrimaryTimeoutSec: 60,
 		SystemPrompt: "Ты — помощник бригады сварщиков-сантехников (отопление, водоснабжение, канализация, сварка трубопроводов), " +
 			"работающей в Москве и Московской области как ИП. Отвечай по-русски, коротко и по делу, без воды. " +
 			"Если не уверен в цифрах (цены, нормы, СП, ГОСТ) — так и скажи и предложи, где проверить. " +
