@@ -6,7 +6,11 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.text.format.Formatter
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -24,6 +28,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerScope
 import androidx.compose.foundation.pager.PagerState
@@ -47,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -58,6 +65,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,6 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -83,8 +92,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.enya.pdfreader.R
 import com.enya.pdfreader.data.ReaderPrefs
 import com.enya.pdfreader.data.RecentFilesStore
+import com.enya.pdfreader.pdf.ExportFormat
 import com.enya.pdfreader.pdf.PdfOpenException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.OutputStream
 import kotlin.math.roundToInt
 
 private val BarColor = Color(0xE61E1E1E)
@@ -178,9 +191,89 @@ private fun ReaderContent(viewModel: ReaderViewModel, ready: ReaderState.Ready, 
     var menuOpen by remember { mutableStateOf(false) }
     var showGoTo by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var exporting by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
+    var exportFrom by rememberSaveable { mutableIntStateOf(0) }
+    var exportTo by rememberSaveable { mutableIntStateOf(0) }
 
     val pageCount = ready.pageCount.coerceAtLeast(1)
     val pagerState = rememberPagerState(initialPage = ready.initialPage.coerceIn(0, pageCount - 1)) { pageCount }
+
+    fun exportFileName(format: ExportFormat, from: Int, to: Int): String {
+        val base = ready.name.substringBeforeLast('.')
+        val stem = if (from == to) {
+            context.getString(R.string.export_file_name, base, from + 1)
+        } else {
+            context.getString(R.string.export_range_file_name, base, from + 1, to + 1)
+        }
+        return "$stem.${format.extension}"
+    }
+
+    fun runExport(block: suspend () -> Int) {
+        scope.launch {
+            exporting = true
+            val saved = try {
+                withContext(Dispatchers.IO) { block() }
+            } catch (e: Exception) {
+                -1
+            }
+            exporting = false
+            val message = when {
+                saved < 0 -> context.getString(R.string.export_failed)
+                saved == 1 -> context.getString(R.string.export_done)
+                else -> context.getString(R.string.export_done_count, saved)
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // One PDF with the chosen page range.
+    val savePdf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ExportFormat.PDF.mimeType)) { target ->
+        if (target != null) {
+            val range = exportFrom..exportTo
+            runExport {
+                openForWriting(context, target).use { out -> viewModel.exportPdf(range, out) }
+                range.last - range.first + 1
+            }
+        }
+    }
+    // A single PNG.
+    val savePng = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ExportFormat.PNG.mimeType)) { target ->
+        if (target != null) {
+            val page = exportFrom
+            runExport {
+                openForWriting(context, target).use { out -> viewModel.exportPng(page, out) }
+                1
+            }
+        }
+    }
+    // Several PNGs: the user picks a folder and one file per page is created in it.
+    val savePngFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        if (tree != null) {
+            val range = exportFrom..exportTo
+            runExport {
+                val resolver = context.contentResolver
+                val dir = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+                for (page in range) {
+                    val name = exportFileName(ExportFormat.PNG, page, page)
+                    val file = DocumentsContract.createDocument(resolver, dir, ExportFormat.PNG.mimeType, name)
+                        ?: throw java.io.IOException("cannot create $name")
+                    openForWriting(context, file).use { out -> viewModel.exportPng(page, out) }
+                }
+                range.last - range.first + 1
+            }
+        }
+    }
+
+    val startExport: (ExportFormat, Int, Int) -> Unit = { format, from, to ->
+        exportFrom = from
+        exportTo = to
+        when {
+            format == ExportFormat.PDF -> savePdf.launch(exportFileName(format, from, to))
+            from == to -> savePng.launch(exportFileName(format, from, to))
+            else -> savePngFolder.launch(null)
+        }
+    }
 
     LaunchedEffect(pagerState, viewModel.uri) {
         snapshotFlow { pagerState.settledPage }.collect { page ->
@@ -241,6 +334,15 @@ private fun ReaderContent(viewModel: ReaderViewModel, ready: ReaderState.Ready, 
                     }
                 },
                 actions = {
+                    if (exporting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                        )
+                    }
                     Text(
                         stringResource(R.string.page_counter, pagerState.currentPage + 1, pageCount),
                         style = MaterialTheme.typography.labelLarge,
@@ -272,6 +374,11 @@ private fun ReaderContent(viewModel: ReaderViewModel, ready: ReaderState.Ready, 
                                     prefs.verticalScroll = vertical
                                     menuOpen = false
                                 },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.save_pages)) },
+                                enabled = !exporting,
+                                onClick = { menuOpen = false; showExport = true },
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.share)) },
@@ -315,6 +422,18 @@ private fun ReaderContent(viewModel: ReaderViewModel, ready: ReaderState.Ready, 
             onGo = { page ->
                 showGoTo = false
                 scope.launch { pagerState.scrollToPage(page - 1) }
+            },
+        )
+    }
+
+    if (showExport) {
+        ExportDialog(
+            pageCount = pageCount,
+            current = pagerState.currentPage + 1,
+            onDismiss = { showExport = false },
+            onConfirm = { format, from, to ->
+                showExport = false
+                startExport(format, from - 1, to - 1)
             },
         )
     }
@@ -431,6 +550,88 @@ private fun GoToPageDialog(pageCount: Int, current: Int, onDismiss: () -> Unit, 
     )
 }
 
+@Composable
+private fun ExportDialog(
+    pageCount: Int,
+    current: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (ExportFormat, Int, Int) -> Unit,
+) {
+    var format by remember { mutableStateOf(ExportFormat.PDF) }
+    var fromText by remember { mutableStateOf(current.toString()) }
+    var toText by remember { mutableStateOf(current.toString()) }
+    val from = fromText.trim().toIntOrNull()
+    val to = toText.trim().toIntOrNull()
+    val valid = from != null && to != null && from in 1..pageCount && to in from..pageCount
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.save_pages)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.export_format), style = MaterialTheme.typography.labelLarge)
+                ExportFormat.entries.forEach { option ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(selected = format == option, onClick = { format = option }, role = Role.RadioButton),
+                    ) {
+                        RadioButton(selected = format == option, onClick = null)
+                        Text(
+                            when (option) {
+                                ExportFormat.PDF -> stringResource(R.string.export_format_pdf)
+                                ExportFormat.PNG -> stringResource(R.string.export_format_png)
+                            },
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.export_pages_hint, pageCount), style = MaterialTheme.typography.labelLarge)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = fromText,
+                        onValueChange = { fromText = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.export_from)) },
+                        singleLine = true,
+                        isError = fromText.isNotEmpty() && (from == null || from !in 1..pageCount),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                        modifier = Modifier.weight(1f),
+                    )
+                    OutlinedTextField(
+                        value = toText,
+                        onValueChange = { toText = it.filter { c -> c.isDigit() } },
+                        label = { Text(stringResource(R.string.export_to)) },
+                        singleLine = true,
+                        isError = toText.isNotEmpty() && !valid,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { if (valid) onConfirm(format, from!!, to!!) }),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (format == ExportFormat.PNG && valid && from != to) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.export_png_folder_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { if (valid) onConfirm(format, from!!, to!!) }, enabled = valid) {
+                Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+        },
+    )
+}
+
 /** Hides the status/navigation bars together with the reader chrome for an immersive view. */
 @Composable
 private fun SystemBars(visible: Boolean) {
@@ -453,6 +654,17 @@ private fun Context.findActivity(): Activity? {
         ctx = ctx.baseContext
     }
     return null
+}
+
+/** Opens a SAF target for writing, truncating any existing content when the provider allows it. */
+private fun openForWriting(context: Context, target: Uri): OutputStream {
+    val resolver = context.contentResolver
+    val stream = try {
+        resolver.openOutputStream(target, "wt")
+    } catch (e: Exception) {
+        resolver.openOutputStream(target, "w")
+    }
+    return stream ?: throw java.io.IOException("cannot open $target for writing")
 }
 
 private fun shareDocument(context: Context, uri: Uri) {

@@ -70,6 +70,17 @@ class PdfDocument private constructor(
         }
     }
 
+    /** Page size in PDF points (1/72 inch). */
+    suspend fun pageSizePoints(pageIndex: Int): Pair<Int, Int> {
+        require(pageIndex in 0 until pageCount) { "page $pageIndex out of range" }
+        return withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (closed) throw IOException("document closed")
+                renderer.openPage(pageIndex).use { page -> page.width to page.height }
+            }
+        }
+    }
+
     override fun close() {
         closed = true
         cache.evictAll()

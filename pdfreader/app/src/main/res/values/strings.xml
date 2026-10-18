@@ -32,4 +32,19 @@
     <string name="error_no_access">The file is no longer available or access to it was revoked. Open it again from the file manager.</string>
     <string name="error_page">Failed to render this page.</string>
     <string name="last_opened">Opened %1$s</string>
+    <string name="export_file_name">%1$s - page %2$d</string>
+    <string name="export_in_progress">Saving page…</string>
+    <string name="export_done">Page saved</string>
+    <string name="export_failed">Could not save the page</string>
+    <string name="save_pages">Save pages…</string>
+    <string name="save">Save</string>
+    <string name="export_format">Format</string>
+    <string name="export_format_pdf">PDF (text stays selectable)</string>
+    <string name="export_format_png">PNG image</string>
+    <string name="export_pages_hint">Pages (1–%1$d)</string>
+    <string name="export_from">From</string>
+    <string name="export_to">To</string>
+    <string name="export_png_folder_hint">Several images: you will be asked to choose a folder, and one file per page will be created there.</string>
+    <string name="export_range_file_name">%1$s - pages %2$d-%3$d</string>
+    <string name="export_done_count">Saved pages: %1$d</string>
 </resources>

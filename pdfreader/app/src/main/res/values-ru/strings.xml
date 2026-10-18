@@ -32,4 +32,19 @@
     <string name="error_no_access">Файл больше недоступен или доступ к нему отозван. Откройте его заново из проводника.</string>
     <string name="error_page">Не удалось отрисовать страницу.</string>
     <string name="last_opened">Открыт %1$s</string>
+    <string name="export_file_name">%1$s - стр. %2$d</string>
+    <string name="export_in_progress">Сохраняем страницу…</string>
+    <string name="export_done">Страница сохранена</string>
+    <string name="export_failed">Не удалось сохранить страницу</string>
+    <string name="save_pages">Сохранить страницы…</string>
+    <string name="save">Сохранить</string>
+    <string name="export_format">Формат</string>
+    <string name="export_format_pdf">PDF (текст остаётся выделяемым)</string>
+    <string name="export_format_png">Картинка PNG</string>
+    <string name="export_pages_hint">Страницы (1–%1$d)</string>
+    <string name="export_from">С</string>
+    <string name="export_to">По</string>
+    <string name="export_png_folder_hint">Несколько картинок: вы выберете папку, и в ней будет создан отдельный файл для каждой страницы.</string>
+    <string name="export_range_file_name">%1$s - стр. %2$d-%3$d</string>
+    <string name="export_done_count">Сохранено страниц: %1$d</string>
 </resources>

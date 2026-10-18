@@ -8,12 +8,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.enya.pdfreader.data.RecentFilesStore
+import com.enya.pdfreader.pdf.PageExporter
 import com.enya.pdfreader.pdf.PdfDocument
 import com.enya.pdfreader.pdf.PdfOpenException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.io.OutputStream
 
 sealed interface ReaderState {
     data object Loading : ReaderState
@@ -65,6 +67,18 @@ class ReaderViewModel(app: Application, val uri: Uri) : AndroidViewModel(app) {
     suspend fun render(pageIndex: Int, widthPx: Int): Bitmap {
         val doc = document ?: throw IllegalStateException("document not open")
         return doc.render(pageIndex, widthPx)
+    }
+
+    /** Writes a page range (zero-based, inclusive) of the open document as one PDF to [out]. */
+    suspend fun exportPdf(pages: IntRange, out: OutputStream) {
+        val doc = document ?: throw IllegalStateException("document not open")
+        PageExporter.exportPdf(getApplication(), uri, doc, pages, out)
+    }
+
+    /** Writes one page of the open document as a PNG image to [out]. */
+    suspend fun exportPng(pageIndex: Int, out: OutputStream) {
+        val doc = document ?: throw IllegalStateException("document not open")
+        PageExporter.exportPng(doc, pageIndex, out)
     }
 
     fun release() {

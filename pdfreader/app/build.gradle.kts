@@ -12,8 +12,8 @@ android {
         applicationId = "com.enya.pdfreader"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
     }
 
     signingConfigs {
@@ -75,4 +75,7 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // Page extraction into a standalone PDF (keeps text and vector content)
+    implementation(libs.pdfbox.android)
 }
