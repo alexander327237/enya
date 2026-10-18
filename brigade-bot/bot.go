@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -42,10 +43,22 @@ type Bot struct {
 	lastHint map[int64]time.Time
 
 	sem chan struct{}
+	ts  *Timesheet
 }
 
 func NewBot(s *Store) *Bot {
+	tsPath := ""
+	if s.path != "" {
+		tsPath = filepath.Join(filepath.Dir(s.path), "brigade-bot-timesheet.json")
+	}
+	ts, err := LoadTimesheet(tsPath)
+	if err != nil {
+		fmt.Println("Не удалось прочитать табель:", err)
+		ts, _ = LoadTimesheet("")
+		ts.path = tsPath + ".new"
+	}
 	return &Bot{
+		ts:      ts,
 		store:   s,
 		ru:      newRuClient(),
 		def:     newDefaultClient(),
@@ -297,6 +310,9 @@ func (b *Bot) decide(cfg Config, m MaxMessage, botID int64, botUsername string) 
 	case "/limit", "/лимит":
 		return Decision{Builtin: "limit"}
 	}
+	if kind, ok := tsCommand(cmd); ok {
+		return Decision{Builtin: "ts:" + kind, Text: strings.TrimSpace(text[len(firstWord(text)):])}
+	}
 	return Decision{Respond: true, Text: text}
 }
 
@@ -344,6 +360,10 @@ func (b *Bot) handleMessage(ctx context.Context, mc *MaxClient, cfg Config, m Ma
 		delete(b.history, chatID)
 		b.mu.Unlock()
 		reply("Контекст разговора очищен.")
+		return
+	case "ts:in", "ts:out", "ts:hours", "ts:report":
+		reply(b.handleTimesheet(strings.TrimPrefix(d.Builtin, "ts:"), d.Text, m, time.Now()))
+		b.logf("Табель: %s %s %s", m.Sender.DisplayName(), d.Builtin, shorten(d.Text, 40))
 		return
 	case "limit":
 		b.mu.Lock()
@@ -512,6 +532,7 @@ func helpText(cfg Config) string {
 			sb.WriteString(fmt.Sprintf("/%s — %s\n", c.Name, c.Title))
 		}
 	}
+	sb.WriteString("\nТабель:\n/пришёл [объект] — отметить приход\n/ушёл — отметить уход, бот посчитает часы\n/часы 8 [объект] — внести часы вручную (за вчера: /часы 8 вчера)\n/табель — часы за месяц (/табель прошлый — за прошлый)\n\n")
 	sb.WriteString("/сброс — забыть разговор\n/лимит — сколько запросов осталось\n/id — узнать свой ID")
 	return sb.String()
 }
@@ -533,6 +554,11 @@ func menuCommands(cfg Config) []BotCommand {
 		}
 		out = append(out, BotCommand{Name: name, Description: d})
 	}
+	out = append(out,
+		BotCommand{Name: "prishel", Description: "Табель: пришёл на работу"},
+		BotCommand{Name: "ushel", Description: "Табель: ушёл, посчитать часы"},
+		BotCommand{Name: "chasy", Description: "Табель: внести часы, например /chasy 8"},
+		BotCommand{Name: "tabel", Description: "Табель за месяц"})
 	out = append(out, BotCommand{Name: "reset", Description: "Забыть разговор"}, BotCommand{Name: "limit", Description: "Сколько запросов осталось"})
 	if len(out) > 32 {
 		out = out[:32]

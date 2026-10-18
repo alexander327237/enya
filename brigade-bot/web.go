@@ -206,6 +206,63 @@ func (s *Server) routes() *http.ServeMux {
 		writeJSON(w, map[string]bool{"ok": true})
 	}))
 
+	mux.HandleFunc("/api/timesheet", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		ym := r.URL.Query().Get("month")
+		if ym == "" {
+			ym = time.Now().Format("2006-01")
+		}
+		entries := s.bot.ts.Month(ym)
+		if entries == nil {
+			entries = []TSEntry{}
+		}
+		sum := Summarize(entries)
+		if sum == nil {
+			sum = []TSPerson{}
+		}
+		writeJSON(w, map[string]any{"month": ym, "title": monthTitle(ym), "entries": entries, "summary": sum})
+	}))
+
+	mux.HandleFunc("/api/timesheet/add", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var in TSEntry
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			writeErr(w, err)
+			return
+		}
+		in.Name = strings.TrimSpace(in.Name)
+		if _, err := time.Parse("2006-01-02", in.Date); err != nil || in.Name == "" || in.Hours <= 0 || in.Hours > 24 {
+			writeErr(w, simpleErr("нужны имя, дата и часы (от 0 до 24)"))
+			return
+		}
+		in.Open, in.Start, in.End = false, "", ""
+		if _, err := s.bot.ts.Add(in); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/timesheet/delete", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			ID int64 `json:"id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if err := s.bot.ts.Delete(in.ID); err != nil {
+			writeErr(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
+	}))
+
+	mux.HandleFunc("/api/timesheet.csv", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		ym := r.URL.Query().Get("month")
+		if _, err := time.Parse("2006-01", ym); err != nil {
+			ym = time.Now().Format("2006-01")
+		}
+		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="tabel-`+ym+`.csv"`)
+		_, _ = w.Write(TimesheetCSV(s.bot.ts.Month(ym)))
+	}))
+
 	mux.HandleFunc("/api/dismiss", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		var in struct {
 			Kind string `json:"kind"`

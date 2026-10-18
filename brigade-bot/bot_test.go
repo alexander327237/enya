@@ -332,3 +332,53 @@ func TestFallbackProviderChoice(t *testing.T) {
 		t.Fatal("YandexGPT без ключа не должен настраиваться")
 	}
 }
+
+func TestTimesheet(t *testing.T) {
+	b := NewBot(&Store{cfg: defaultConfig()})
+	m := msg("chat", 500, 10, "")
+	day := time.Date(2026, 10, 19, 8, 0, 0, 0, time.Local)
+
+	if r := b.handleTimesheet("in", "Химки", m, day); !strings.Contains(r, "пришёл в 08:00") || !strings.Contains(r, "Химки") {
+		t.Fatal(r)
+	}
+	if r := b.handleTimesheet("in", "", m, day.Add(time.Hour)); !strings.Contains(r, "уже отметились") {
+		t.Fatal(r)
+	}
+	if r := b.handleTimesheet("out", "", m, day.Add(9*time.Hour+30*time.Minute)); !strings.Contains(r, "9,5 ч") {
+		t.Fatal(r)
+	}
+	if r := b.handleTimesheet("out", "", m, day.Add(10*time.Hour)); !strings.Contains(r, "не отмечали") {
+		t.Fatal(r)
+	}
+	if r := b.handleTimesheet("hours", "7,5 вчера Ленина 12", m, day); !strings.Contains(r, "18.10") || !strings.Contains(r, "7,5") {
+		t.Fatal(r)
+	}
+	if r := b.handleTimesheet("hours", "abc", m, day); !strings.Contains(r, "Не понял") {
+		t.Fatal(r)
+	}
+	// Ночная смена через полночь.
+	m2 := msg("chat", 500, 11, "")
+	m2.Sender.FirstName = "Саня"
+	b.handleTimesheet("in", "", m2, day.Add(14*time.Hour))
+	b.handleTimesheet("out", "", m2, day.Add(20*time.Hour))
+	r := b.handleTimesheet("report", "", m, day)
+	for _, want := range []string{"октябрь 2026", "Иван — 17 ч, дней: 2", "Химки: 9,5 ч", "Ленина 12: 7,5 ч", "Саня — 6 ч", "Всего: 23 ч"} {
+		if !strings.Contains(r, want) {
+			t.Fatalf("нет %q в:\n%s", want, r)
+		}
+	}
+	csv := string(TimesheetCSV(b.ts.Month("2026-10")))
+	if !strings.Contains(csv, "19.10.2026;\"Иван\";\"Химки\";08:00;17:30;9,5") {
+		t.Fatal(csv)
+	}
+	// Команды табеля проходят проверку доступа и не тратят запросы к нейросети.
+	cfg := defaultConfig()
+	cfg.AllowedUsers = []Person{{ID: 10}}
+	cfg.AllowedChats = []Person{{ID: 500}}
+	if d := b.decide(cfg, msg("chat", 500, 10, "/пришёл Химки"), 1, "bot"); d.Builtin != "ts:in" || d.Text != "Химки" {
+		t.Fatalf("%+v", d)
+	}
+	if d := b.decide(cfg, msg("chat", 500, 99, "/пришёл"), 1, "bot"); d.Reason != "user" {
+		t.Fatalf("чужой не должен отмечаться: %+v", d)
+	}
+}

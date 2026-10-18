@@ -59,6 +59,7 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
   <button data-t="max">Макс</button>
   <button data-t="ai">Нейросеть</button>
   <button data-t="access">Доступ</button>
+  <button data-t="ts">Табель</button>
   <button data-t="cmds">Команды</button>
   <button data-t="limits">Лимиты</button>
 </nav>
@@ -189,6 +190,29 @@ td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertic
     <div class="row" style="margin-top:8px"><input id="addChatId" placeholder="ID чата"><input id="addChatName" placeholder="Название"></div>
     <div style="margin-top:8px"><button class="btn sec" data-add="chat">Добавить</button></div>
   </div>
+</section>
+
+<section id="t-ts">
+  <div class="card">
+    <h2>Табель</h2>
+    <div class="row" style="align-items:end">
+      <div><label>Месяц</label><input id="ts_month" type="month"></div>
+      <div><button class="btn sec" id="tsCsv">Скачать для Excel</button></div>
+    </div>
+    <div class="hint">В чате: <b>/пришёл Химки</b>, <b>/ушёл</b>, <b>/часы 8</b>, <b>/табель</b>. Часы считает программа, не нейросеть.</div>
+  </div>
+  <div class="card"><h2 id="ts_title">Итого</h2><table id="ts_sum"></table></div>
+  <div class="card">
+    <h2>Добавить часы вручную</h2>
+    <div class="row">
+      <div><label>Сотрудник</label><input id="ts_name" list="ts_people" placeholder="Имя"><datalist id="ts_people"></datalist></div>
+      <div><label>Дата</label><input id="ts_date" type="date"></div>
+      <div><label>Часов</label><input id="ts_hours" type="number" step="0.25" min="0.25" max="24" placeholder="8"></div>
+      <div><label>Объект (необязательно)</label><input id="ts_obj" placeholder="Химки"></div>
+    </div>
+    <div style="margin-top:10px"><button class="btn sec" id="tsAdd">Добавить</button></div>
+  </div>
+  <div class="card"><h2>Все записи</h2><table id="ts_list"></table></div>
 </section>
 
 <section id="t-cmds">
@@ -345,6 +369,25 @@ async function refresh(){
     $('pending').innerHTML=p.length?p.map(x=>`<tr><td>${x.kind==='user'?'👤':'💬'} ${esc(x.name)}<div class="hint">${esc(x.note)} · ${esc(x.when)} · id ${x.id}</div></td><td style="text-align:right;white-space:nowrap"><button class="btn" data-allow="${x.kind}" data-id="${x.id}" data-name="${esc(x.name)}">Разрешить</button> <button class="btn sec" data-dismiss="${x.kind}" data-id="${x.id}">Скрыть</button></td></tr>`).join(''):'<tr><td class="hint">Никого</td></tr>';
   }catch(e){$('state').textContent='нет связи с программой';$('state').className='pill off'}
 }
+const fmtH=h=>String(Math.round(h*100)/100).replace('.',',');
+async function loadTS(){
+  if(!$('ts_month').value){const d=new Date();$('ts_month').value=d.toISOString().slice(0,7);$('ts_date').value=d.toISOString().slice(0,10)}
+  try{
+    const r=await api('/api/timesheet?month='+$('ts_month').value);
+    $('ts_title').textContent='Итого за '+r.title;
+    const total=r.summary.reduce((a,p)=>a+p.hours,0);
+    $('ts_sum').innerHTML=r.summary.length?('<tr><th>Сотрудник</th><th>Дней</th><th>Часов</th><th>По объектам</th></tr>'+r.summary.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.days}</td><td><b>${fmtH(p.hours)}</b></td><td class="hint">${Object.entries(p.by_object).map(([o,h])=>esc(o)+': '+fmtH(h)).join(' · ')}</td></tr>`).join('')+`<tr><td><b>Всего</b></td><td></td><td><b>${fmtH(total)}</b></td><td></td></tr>`):'<tr><td class="hint">За этот месяц записей нет</td></tr>';
+    $('ts_list').innerHTML=r.entries.length?('<tr><th>Дата</th><th>Сотрудник</th><th>Объект</th><th>Время</th><th>Часов</th><th></th></tr>'+r.entries.slice().reverse().map(e=>`<tr><td>${e.date.split('-').reverse().join('.')}</td><td>${esc(e.name)}</td><td>${esc(e.object)}</td><td class="hint">${e.start?esc(e.start)+' – '+(e.open?'на работе':esc(e.end)):'вручную'}</td><td>${e.open?'…':fmtH(e.hours)}</td><td style="text-align:right"><button class="btn sec" data-tsdel="${e.id}">Удалить</button></td></tr>`).join('')):'<tr><td class="hint">Пусто</td></tr>';
+    $('ts_people').innerHTML=[...new Set([...(cfg?.allowed_users||[]).map(p=>p.name),...r.entries.map(e=>e.name)])].map(n=>`<option value="${esc(n)}">`).join('');
+  }catch(e){toast(e.message,true)}
+}
+$('ts_month').onchange=loadTS;
+$('tsCsv').onclick=()=>{location.href='/api/timesheet.csv?month='+$('ts_month').value};
+$('tsAdd').onclick=async()=>{
+  try{await api('/api/timesheet/add',{name:$('ts_name').value,date:$('ts_date').value,hours:parseFloat(String($('ts_hours').value).replace(',','.')),object:$('ts_obj').value.trim()});$('ts_hours').value='';toast('Добавлено');loadTS()}catch(e){toast(e.message,true)}
+};
+document.addEventListener('click',async e=>{const id=e.target.dataset.tsdel;if(id&&confirm('Удалить запись?')){await api('/api/timesheet/delete',{id:+id});loadTS()}});
+document.querySelector('#tabs button[data-t=ts]').addEventListener('click',loadTS);
 load().then(refresh);setInterval(refresh,3000);
 </script>
 </body>
