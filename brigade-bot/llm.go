@@ -16,9 +16,46 @@ import (
 	"time"
 )
 
+type ImagePart struct {
+	URL string // data:image/...;base64,...
+}
+
 type ChatMsg struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role    string      `json:"role"`
+	Content string      `json:"content"`
+	Images  []ImagePart `json:"-"` // только для моделей со зрением (OpenAI-формат)
+}
+
+// oaMessages переводит сообщения в OpenAI-формат: текст строкой, с картинками — массивом частей.
+func oaMessages(msgs []ChatMsg) []any {
+	out := make([]any, 0, len(msgs))
+	for _, m := range msgs {
+		if len(m.Images) == 0 {
+			out = append(out, map[string]any{"role": m.Role, "content": m.Content})
+			continue
+		}
+		parts := []any{}
+		if m.Content != "" {
+			parts = append(parts, map[string]any{"type": "text", "text": m.Content})
+		}
+		for _, im := range m.Images {
+			parts = append(parts, map[string]any{"type": "image_url", "image_url": map[string]any{"url": im.URL, "detail": "auto"}})
+		}
+		out = append(out, map[string]any{"role": m.Role, "content": parts})
+	}
+	return out
+}
+
+// textOnly выкидывает картинки — для моделей без зрения, с пометкой в тексте.
+func textOnly(msgs []ChatMsg) []ChatMsg {
+	out := make([]ChatMsg, len(msgs))
+	for i, m := range msgs {
+		out[i] = ChatMsg{Role: m.Role, Content: m.Content}
+		if len(m.Images) > 0 {
+			out[i].Content += fmt.Sprintf("\n[К сообщению приложено изображений: %d; эта модель их не видит]", len(m.Images))
+		}
+	}
+	return out
 }
 
 type LLM interface {
@@ -117,7 +154,13 @@ func (o *openAICompat) Chat(ctx context.Context, msgs []ChatMsg, temp float64, m
 	if o.cfg.APIKey != "" {
 		h["Authorization"] = "Bearer " + o.cfg.APIKey
 	}
-	body := map[string]any{"model": o.cfg.Model, "messages": msgs, "temperature": temp, "max_tokens": maxTok, "stream": false}
+	body := map[string]any{"model": o.cfg.Model, "messages": oaMessages(msgs), "temperature": temp, "max_tokens": maxTok, "stream": false}
+	// DeepSeek и Qwen3 по умолчанию «думают» перед ответом — для чата это долго и дорого.
+	if strings.Contains(o.cfg.BaseURL, "deepseek.com") {
+		body["thinking"] = map[string]any{"type": "disabled"}
+	} else if strings.Contains(o.cfg.BaseURL, "localhost") || strings.Contains(o.cfg.BaseURL, "127.0.0.1") {
+		body["think"] = false // Ollama
+	}
 	var r oaResp
 	if err := postJSON(ctx, o.hc, strings.TrimRight(o.cfg.BaseURL, "/")+"/chat/completions", h, body, &r); err != nil {
 		return "", err
@@ -197,7 +240,7 @@ func (g *gigaChat) Chat(ctx context.Context, msgs []ChatMsg, temp float64, maxTo
 	if model == "" {
 		model = "GigaChat"
 	}
-	body := map[string]any{"model": model, "messages": msgs, "temperature": temp, "max_tokens": maxTok}
+	body := map[string]any{"model": model, "messages": textOnly(msgs), "temperature": temp, "max_tokens": maxTok}
 	var r oaResp
 	if err := postJSON(ctx, g.hc, gigaChatURL, map[string]string{"Authorization": "Bearer " + tok}, body, &r); err != nil {
 		return "", err
@@ -231,7 +274,7 @@ func (y *yandexGPT) Chat(ctx context.Context, msgs []ChatMsg, temp float64, maxT
 		Text string `json:"text"`
 	}
 	var ymsgs []ym
-	for _, m := range msgs {
+	for _, m := range textOnly(msgs) {
 		ymsgs = append(ymsgs, ym{Role: m.Role, Text: m.Content})
 	}
 	body := map[string]any{

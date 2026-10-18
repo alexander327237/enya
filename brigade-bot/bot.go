@@ -243,10 +243,20 @@ type Decision struct {
 
 func (b *Bot) decide(cfg Config, m MaxMessage, botID int64, botUsername string) Decision {
 	text := strings.TrimSpace(m.Body.Text)
-	if m.Sender.IsBot || m.Sender.UserID == botID || text == "" {
+	if m.Sender.IsBot || m.Sender.UserID == botID || (text == "" && !m.HasAttachments()) {
 		return Decision{Reason: "skip"}
 	}
 	isGroup := m.Recipient.ChatType != "" && m.Recipient.ChatType != "dialog"
+	// Голосовое без текста в группе: обращением считаем, только если расшифровка начинается с триггера —
+	// это проверится ниже по тексту расшифровки.
+	if text == "" {
+		for _, a := range m.Body.Attachments {
+			if a.Type == "audio" && strings.TrimSpace(a.Transcription) != "" {
+				text = strings.TrimSpace(a.Transcription)
+				break
+			}
+		}
+	}
 
 	// В группе реагируем только на обращение к боту.
 	if isGroup {
@@ -278,6 +288,9 @@ func (b *Bot) decide(cfg Config, m MaxMessage, botID int64, botUsername string) 
 		if !addressed {
 			return Decision{Reason: "skip"}
 		}
+	}
+	if text == "" && m.HasAttachments() {
+		text = "Что это? Разбери содержимое вложения и скажи, что важно для нашей работы."
 	}
 
 	// /id доступен всем: так человек узнаёт свой ID, чтобы владелец его добавил.
@@ -404,13 +417,35 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 		user = m.Sender.DisplayName() + ": " + user
 	}
 
+	// Вложения: фото — картинкой, документы и расшифровки — текстом.
+	var images []ImagePart
+	if m.HasAttachments() {
+		actx, acancel := context.WithTimeout(ctx, 2*time.Minute)
+		prep := b.PrepareAttachments(actx, mc, m.Body.Attachments)
+		acancel()
+		images = prep.Images
+		if prep.Text != "" {
+			user += "\n\n" + prep.Text
+		}
+		for _, n := range prep.Notes {
+			b.logf("Вложение: %s", n)
+		}
+		if prep.Empty() && len(prep.Notes) > 0 {
+			reply("Не смог прочитать вложение: " + strings.Join(prep.Notes, "; "))
+			return
+		}
+		if len(images) > 0 {
+			sys += "\n\nК сообщению приложены изображения. Опиши, что на них, и отвечай по ним. Если текст на фото мелкий или нечитаемый — скажи, что именно не разобрал."
+		}
+	}
+
 	b.mu.Lock()
 	hist := append([]ChatMsg(nil), b.history[chatID]...)
 	b.mu.Unlock()
 
 	msgs := []ChatMsg{{Role: "system", Content: sys}}
 	msgs = append(msgs, hist...)
-	msgs = append(msgs, ChatMsg{Role: "user", Content: user})
+	msgs = append(msgs, ChatMsg{Role: "user", Content: user, Images: images})
 
 	b.logf("Запрос от %s в чате %d: %s", m.Sender.DisplayName(), chatID, shorten(text, 80))
 	start := time.Now()
@@ -428,10 +463,13 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 			return
 		}
 		fmsgs := msgs
-		if cfg.FallbackProvider == "" || cfg.FallbackProvider == "openai" {
+		localFallback := cfg.FallbackProvider == "" || cfg.FallbackProvider == "openai"
+		if localFallback {
 			reply("Основная нейросеть сейчас не отвечает — отвечает запасная на нашем компьютере, это может занять пару минут.")
 			// Маленькой локальной модели даём только последний обмен репликами: так быстрее.
-			fmsgs = []ChatMsg{{Role: "system", Content: sys}}
+			fsys := sys + "\n\nСейчас ты работаешь как запасная локальная модель без интернета: основная нейросеть недоступна. " +
+				"Отвечай кратко. Если не уверен — скажи об этом прямо, не угадывай."
+			fmsgs = []ChatMsg{{Role: "system", Content: fsys}}
 			if len(hist) >= 2 {
 				fmsgs = append(fmsgs, hist[len(hist)-2:]...)
 			}
@@ -442,10 +480,16 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 		out, err = fb.Chat(fctx, fmsgs, cfg.Temperature, cfg.FallbackMaxTokens)
 		if err != nil {
 			b.logf("Ошибка запасной нейросети: %v", err)
-			reply("Запасная нейросеть тоже не ответила. Попробуйте позже.")
+			reply("Извините, сейчас не могу ответить: основная нейросеть недоступна, запасная тоже не ответила. Попробуйте позже.")
 			return
 		}
 		b.logf("Ответила запасная нейросеть")
+		out = strings.TrimSpace(out)
+		if out == "" {
+			out = "Извините, ответа нет: основная нейросеть недоступна, а запасная не смогла ответить. Попробуйте позже."
+		} else {
+			out = "⚠️ Ответ запасной нейросети (основная недоступна), возможны неточности:\n\n" + out
+		}
 	}
 	out = strings.TrimSpace(out)
 	if out == "" {
@@ -457,7 +501,11 @@ func (b *Bot) answer(ctx context.Context, mc *MaxClient, cfg Config, m MaxMessag
 	n := cfg.HistoryLen
 	if n > 0 {
 		b.mu.Lock()
-		h := append(b.history[chatID], ChatMsg{Role: "user", Content: user}, ChatMsg{Role: "assistant", Content: out})
+		hu := user
+		if len(images) > 0 {
+			hu += fmt.Sprintf("\n[было приложено изображений: %d]", len(images))
+		}
+		h := append(b.history[chatID], ChatMsg{Role: "user", Content: hu}, ChatMsg{Role: "assistant", Content: out})
 		if len(h) > n*2 {
 			h = h[len(h)-n*2:]
 		}

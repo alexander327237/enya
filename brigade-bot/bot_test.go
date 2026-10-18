@@ -308,7 +308,7 @@ func TestFallback(t *testing.T) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	if len(texts) != 2 || !strings.Contains(texts[0], "запасная") || texts[1] != "Ответ запасной." {
+	if len(texts) != 2 || !strings.Contains(texts[0], "запасная") || !strings.HasSuffix(texts[1], "Ответ запасной.") {
 		t.Fatalf("сообщения: %q", texts)
 	}
 }

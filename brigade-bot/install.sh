@@ -19,6 +19,11 @@ chmod +x "$DIR/brigade-bot.new"
 mv -f "$DIR/brigade-bot.new" "$DIR/brigade-bot"
 fetch "$BASE/brigade-bot/logo.png" "$DIR/logo.png" || true
 
+echo "== Инструменты для чтения PDF"
+if ! command -v pdftotext >/dev/null 2>&1; then
+	sudo apt-get install -y poppler-utils >/dev/null 2>&1 || echo "!! pdftotext не установился — PDF читаться не будут (sudo apt install poppler-utils)"
+fi
+
 echo "== Настраиваю автозапуск"
 mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/brigade-bot.service" <<EOF

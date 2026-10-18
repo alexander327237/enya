@@ -50,9 +50,19 @@ type MaxMessage struct {
 		Sender *MaxUser `json:"sender"`
 	} `json:"link"`
 	Body struct {
-		Mid  string `json:"mid"`
-		Text string `json:"text"`
+		Mid         string          `json:"mid"`
+		Text        string          `json:"text"`
+		Attachments []MaxAttachment `json:"attachments"`
 	} `json:"body"`
+}
+
+func (m MaxMessage) HasAttachments() bool {
+	for _, a := range m.Body.Attachments {
+		if a.Type != "inline_keyboard" {
+			return true
+		}
+	}
+	return false
 }
 
 type MaxUpdate struct {
